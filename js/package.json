@@ -1,0 +1,38 @@
+{
+  "name": "lino-rest-api",
+  "version": "0.1.0",
+  "description": "REST API framework using Links Notation (LINO) instead of JSON",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test tests/*.test.js",
+    "example": "node examples/basic_usage.js"
+  },
+  "keywords": [
+    "rest-api",
+    "links-notation",
+    "lino",
+    "express",
+    "bun"
+  ],
+  "author": "Link Foundation",
+  "license": "Unlicense",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/link-foundation/lino-rest-api.git"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "links-notation": "^0.13.0"
+  },
+  "devDependencies": {
+    "test-anywhere": "^0.8.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
