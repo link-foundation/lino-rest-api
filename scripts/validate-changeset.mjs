@@ -40,14 +40,14 @@ try {
   const content = readFileSync(changesetFile, 'utf-8');
 
   // Check if changeset has a valid type (major, minor, or patch)
-  const versionTypeRegex = /^['"]test-anywhere['"]:\s+(major|minor|patch)/m;
+  const versionTypeRegex = /^['"]lino-rest-api['"]:\s+(major|minor|patch)/m;
   if (!versionTypeRegex.test(content)) {
     console.error(
       '::error::Changeset must specify a version type: major, minor, or patch'
     );
     console.error(`::error::Expected format in ${changesetFile}:`);
     console.error('::error::---');
-    console.error("::error::'test-anywhere': patch");
+    console.error("::error::'lino-rest-api': patch");
     console.error('::error::---');
     console.error('::error::');
     console.error('::error::Your description here');
