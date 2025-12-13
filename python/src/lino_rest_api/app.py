@@ -5,8 +5,9 @@ Provides a convenient way to create FastAPI applications that
 communicate using Links Notation format by default.
 """
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.routing import APIRoute

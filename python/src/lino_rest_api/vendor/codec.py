@@ -7,7 +7,7 @@ until the package is published to PyPI.
 
 import base64
 import math
-from typing import Any, Optional
+from typing import Any
 
 from links_notation import Link, Parser, format_links
 
@@ -84,7 +84,7 @@ class ObjectCodec:
 
         return self._decode_link(links[0])
 
-    def _encode_value(self, obj: Any, visited: Optional[set[int]] = None) -> Link:
+    def _encode_value(self, obj: Any, visited: set[int] | None = None) -> Link:
         """
         Encode a value into a Link.
 

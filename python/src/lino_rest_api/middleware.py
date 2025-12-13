@@ -5,7 +5,7 @@ Provides request body parsing and response formatting using LINO
 instead of JSON.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import Request
 from fastapi.responses import PlainTextResponse
@@ -29,7 +29,7 @@ class LinoRequest:
             request: The FastAPI request object
         """
         self.request = request
-        self._body: Optional[Any] = None
+        self._body: Any | None = None
         self._parsed = False
 
     async def body(self) -> Any:
@@ -72,7 +72,7 @@ class LinoResponse(PlainTextResponse):
         self,
         content: Any = None,
         status_code: int = 200,
-        headers: Optional[dict] = None,
+        headers: dict | None = None,
         **kwargs,
     ):
         """
