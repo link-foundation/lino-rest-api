@@ -5,9 +5,9 @@
  * communicate using Links Notation format by default.
  */
 
-import express from 'express';
-import { linoMiddleware, LINO_CONTENT_TYPE } from './middleware.js';
-import { encode, decode } from './vendor/codec.js';
+import express from "express";
+import { linoMiddleware, LINO_CONTENT_TYPE } from "./middleware.js";
+import { encode, decode } from "./vendor/codec.js";
 
 /**
  * LinoApp class - wraps Express with LINO support.

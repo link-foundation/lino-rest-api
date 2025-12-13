@@ -5,11 +5,11 @@
  * Exits with error code 1 if any files exceed the limit
  */
 
-import { readdir, readFile } from 'fs/promises';
-import { join, relative } from 'path';
+import { readdir, readFile } from "fs/promises";
+import { join, relative } from "path";
 
 const MAX_LINES = 1000;
-const FILE_EXTENSIONS = ['.js', '.mjs', '.cjs'];
+const FILE_EXTENSIONS = [".js", ".mjs", ".cjs"];
 
 /**
  * Recursively find all JavaScript files in a directory
@@ -28,7 +28,7 @@ async function findJavaScriptFiles(dir, filesToExclude = []) {
     // Skip excluded directories and files
     if (
       filesToExclude.some((pattern) =>
-        relativePath.includes(pattern.replace(/\*\*/g, ''))
+        relativePath.includes(pattern.replace(/\*\*/g, "")),
       )
     ) {
       continue;
@@ -50,18 +50,18 @@ async function findJavaScriptFiles(dir, filesToExclude = []) {
  * @returns {Promise<number>} Number of lines
  */
 async function countLines(filePath) {
-  const content = await readFile(filePath, 'utf-8');
-  return content.split('\n').length;
+  const content = await readFile(filePath, "utf-8");
+  return content.split("\n").length;
 }
 
 /**
  * Main function
  */
 async function main() {
-  const excludePatterns = ['node_modules', 'coverage', 'dist', '.git', 'build'];
+  const excludePatterns = ["node_modules", "coverage", "dist", ".git", "build"];
 
   console.log(
-    `\nChecking JavaScript files for maximum ${MAX_LINES} lines...\n`
+    `\nChecking JavaScript files for maximum ${MAX_LINES} lines...\n`,
   );
 
   const files = await findJavaScriptFiles(process.cwd(), excludePatterns);
@@ -78,26 +78,26 @@ async function main() {
   }
 
   if (violations.length === 0) {
-    console.log('✓ All files are within the line limit\n');
+    console.log("✓ All files are within the line limit\n");
     process.exit(0);
   } else {
-    console.error('✗ Found files exceeding the line limit:\n');
+    console.error("✗ Found files exceeding the line limit:\n");
     for (const violation of violations) {
       console.error(
-        `  ${violation.file}: ${violation.lines} lines (exceeds ${MAX_LINES})`
+        `  ${violation.file}: ${violation.lines} lines (exceeds ${MAX_LINES})`,
       );
     }
     console.error(
-      `\nPlease refactor these files to be under ${MAX_LINES} lines\n`
+      `\nPlease refactor these files to be under ${MAX_LINES} lines\n`,
     );
     process.exit(1);
   }
 }
 
 main().catch((error) => {
-  console.error('Error:', error.message);
+  console.error("Error:", error.message);
   if (process.env.DEBUG) {
-    console.error('Stack trace:', error.stack);
+    console.error("Stack trace:", error.stack);
   }
   process.exit(1);
 });

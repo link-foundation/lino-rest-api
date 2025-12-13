@@ -12,31 +12,31 @@
  * - lino-arguments: Unified configuration from CLI args, env vars, and .lenv files
  */
 
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from "fs";
 
 // Load use-m dynamically
 const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
+  await (await fetch("https://unpkg.com/use-m/use.js")).text(),
 );
 
 // Import link-foundation libraries
-const { $ } = await use('command-stream');
-const { makeConfig } = await use('lino-arguments');
+const { $ } = await use("command-stream");
+const { makeConfig } = await use("lino-arguments");
 
 // Parse CLI arguments using lino-arguments
 const config = makeConfig({
   yargs: ({ yargs, getenv }) =>
     yargs
-      .option('bump-type', {
-        type: 'string',
-        default: getenv('BUMP_TYPE', ''),
-        describe: 'Version bump type: major, minor, or patch',
-        choices: ['major', 'minor', 'patch'],
+      .option("bump-type", {
+        type: "string",
+        default: getenv("BUMP_TYPE", ""),
+        describe: "Version bump type: major, minor, or patch",
+        choices: ["major", "minor", "patch"],
       })
-      .option('description', {
-        type: 'string',
-        default: getenv('DESCRIPTION', ''),
-        describe: 'Description for the version bump',
+      .option("description", {
+        type: "string",
+        default: getenv("DESCRIPTION", ""),
+        describe: "Description for the version bump",
       }),
 });
 
@@ -44,9 +44,9 @@ try {
   const { bumpType, description } = config;
   const finalDescription = description || `Manual ${bumpType} release`;
 
-  if (!bumpType || !['major', 'minor', 'patch'].includes(bumpType)) {
+  if (!bumpType || !["major", "minor", "patch"].includes(bumpType)) {
     console.error(
-      'Usage: node scripts/instant-version-bump.mjs --bump-type <major|minor|patch> [--description <description>]'
+      "Usage: node scripts/instant-version-bump.mjs --bump-type <major|minor|patch> [--description <description>]",
     );
     process.exit(1);
   }
@@ -54,7 +54,7 @@ try {
   console.log(`\nBumping version (${bumpType})...`);
 
   // Get current version
-  const packageJson = JSON.parse(readFileSync('package.json', 'utf-8'));
+  const packageJson = JSON.parse(readFileSync("package.json", "utf-8"));
   const oldVersion = packageJson.version;
   console.log(`Current version: ${oldVersion}`);
 
@@ -62,14 +62,14 @@ try {
   await $`npm version ${bumpType} --no-git-tag-version`;
 
   // Get new version
-  const updatedPackageJson = JSON.parse(readFileSync('package.json', 'utf-8'));
+  const updatedPackageJson = JSON.parse(readFileSync("package.json", "utf-8"));
   const newVersion = updatedPackageJson.version;
   console.log(`New version: ${newVersion}`);
 
   // Update CHANGELOG.md
-  console.log('\nUpdating CHANGELOG.md...');
-  const changelogPath = 'CHANGELOG.md';
-  let changelog = readFileSync(changelogPath, 'utf-8');
+  console.log("\nUpdating CHANGELOG.md...");
+  const changelogPath = "CHANGELOG.md";
+  let changelog = readFileSync(changelogPath, "utf-8");
 
   // Create new changelog entry
   const newEntry = `## ${newVersion}
@@ -103,19 +103,19 @@ try {
     }
   }
 
-  writeFileSync(changelogPath, changelog, 'utf-8');
-  console.log('✅ CHANGELOG.md updated');
+  writeFileSync(changelogPath, changelog, "utf-8");
+  console.log("✅ CHANGELOG.md updated");
 
   // Synchronize package-lock.json
-  console.log('\nSynchronizing package-lock.json...');
+  console.log("\nSynchronizing package-lock.json...");
   await $`npm install --package-lock-only`;
 
-  console.log('\n✅ Instant version bump complete');
+  console.log("\n✅ Instant version bump complete");
   console.log(`Version: ${oldVersion} → ${newVersion}`);
 } catch (error) {
-  console.error('Error during instant version bump:', error.message);
+  console.error("Error during instant version bump:", error.message);
   if (process.env.DEBUG) {
-    console.error('Stack trace:', error.stack);
+    console.error("Stack trace:", error.stack);
   }
   process.exit(1);
 }

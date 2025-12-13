@@ -28,7 +28,7 @@ jobs:
         if: matrix.runtime == 'node'
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: "20.x"
 
       - name: Install dependencies (Node.js)
         if: matrix.runtime == 'node'
@@ -60,7 +60,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.13']
+        python-version: ["3.13"]
     defaults:
       run:
         working-directory: python

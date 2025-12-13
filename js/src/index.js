@@ -5,5 +5,5 @@
  * requests and responses in Links Notation (LINO) format.
  */
 
-export { linoMiddleware, linoBodyParser, linoResponse } from './middleware.js';
-export { createLinoApp, LinoApp } from './app.js';
+export { linoMiddleware, linoBodyParser, linoResponse } from "./middleware.js";
+export { createLinoApp, LinoApp } from "./app.js";

@@ -12,15 +12,15 @@ on:
   workflow_dispatch:
     inputs:
       release_mode:
-        description: 'Manual release mode'
+        description: "Manual release mode"
         required: true
         type: choice
-        default: 'instant'
+        default: "instant"
         options:
           - instant
           - changeset-pr
       bump_type:
-        description: 'Manual release type'
+        description: "Manual release type"
         required: true
         type: choice
         options:
@@ -28,7 +28,7 @@ on:
           - minor
           - major
       description:
-        description: 'Manual release description (optional)'
+        description: "Manual release description (optional)"
         required: false
         type: string
 
@@ -48,7 +48,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: "20.x"
 
       - name: Install dependencies
         run: npm install
@@ -76,7 +76,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: "20.x"
 
       - name: Install Node dependencies
         run: npm install
@@ -90,7 +90,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: "3.13"
 
       - name: Install Python dependencies
         run: |
@@ -123,7 +123,7 @@ jobs:
         if: matrix.runtime == 'node'
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: "20.x"
 
       - name: Install dependencies (Node.js)
         if: matrix.runtime == 'node'
@@ -156,7 +156,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.13']
+        python-version: ["3.13"]
     defaults:
       run:
         working-directory: python
@@ -198,7 +198,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: "20.x"
 
       - name: Install Node dependencies
         run: npm install
@@ -206,7 +206,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: "3.13"
 
       - name: Install Python build tools
         run: |
@@ -287,7 +287,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: "20.x"
 
       - name: Install Node dependencies
         run: npm install
@@ -295,7 +295,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: "3.13"
 
       - name: Install Python build tools
         run: |
@@ -388,7 +388,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: "20.x"
 
       - name: Install dependencies
         run: npm install
@@ -407,10 +407,10 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: 'chore: add changeset for manual ${{ github.event.inputs.bump_type }} release'
+          commit-message: "chore: add changeset for manual ${{ github.event.inputs.bump_type }} release"
           branch: changeset-manual-release-${{ github.run_id }}
           delete-branch: true
-          title: 'chore: manual ${{ github.event.inputs.bump_type }} release'
+          title: "chore: manual ${{ github.event.inputs.bump_type }} release"
           body: |
             ## Manual Release Request
 

@@ -12,40 +12,40 @@
  * - lino-arguments: Unified configuration from CLI args, env vars, and .lenv files
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync } from "fs";
 
 // Load use-m dynamically
 const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
+  await (await fetch("https://unpkg.com/use-m/use.js")).text(),
 );
 
 // Import link-foundation libraries
-const { $ } = await use('command-stream');
-const { makeConfig } = await use('lino-arguments');
+const { $ } = await use("command-stream");
+const { makeConfig } = await use("lino-arguments");
 
 // Parse CLI arguments using lino-arguments
 // Note: Using --release-version instead of --version to avoid conflict with yargs' built-in --version flag
 const config = makeConfig({
   yargs: ({ yargs, getenv }) =>
     yargs
-      .option('release-version', {
-        type: 'string',
-        default: getenv('VERSION', ''),
-        describe: 'Version number (e.g., 1.0.0)',
+      .option("release-version", {
+        type: "string",
+        default: getenv("VERSION", ""),
+        describe: "Version number (e.g., 1.0.0)",
       })
-      .option('repository', {
-        type: 'string',
-        default: getenv('REPOSITORY', ''),
-        describe: 'GitHub repository (e.g., owner/repo)',
+      .option("repository", {
+        type: "string",
+        default: getenv("REPOSITORY", ""),
+        describe: "GitHub repository (e.g., owner/repo)",
       }),
 });
 
 const { releaseVersion: version, repository } = config;
 
 if (!version || !repository) {
-  console.error('Error: Missing required arguments');
+  console.error("Error: Missing required arguments");
   console.error(
-    'Usage: node scripts/create-github-release.mjs --release-version <version> --repository <repository>'
+    "Usage: node scripts/create-github-release.mjs --release-version <version> --repository <repository>",
   );
   process.exit(1);
 }
@@ -56,17 +56,17 @@ console.log(`Creating GitHub release for ${tag}...`);
 
 try {
   // Read CHANGELOG.md
-  const changelog = readFileSync('./CHANGELOG.md', 'utf8');
+  const changelog = readFileSync("./CHANGELOG.md", "utf8");
 
   // Extract changelog entry for this version
   // Read from CHANGELOG.md between this version header and the next version header
   const versionHeaderRegex = new RegExp(`## ${version}[\\s\\S]*?(?=## \\d|$)`);
   const match = changelog.match(versionHeaderRegex);
 
-  let releaseNotes = '';
+  let releaseNotes = "";
   if (match) {
     // Remove the version header itself and trim
-    releaseNotes = match[0].replace(`## ${version}`, '').trim();
+    releaseNotes = match[0].replace(`## ${version}`, "").trim();
   }
 
   if (!releaseNotes) {
@@ -89,6 +89,6 @@ try {
 
   console.log(`\u2705 Created GitHub release: ${tag}`);
 } catch (error) {
-  console.error('Error creating release:', error.message);
+  console.error("Error creating release:", error.message);
   process.exit(1);
 }

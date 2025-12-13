@@ -15,24 +15,24 @@
 
 // Load use-m dynamically
 const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
+  await (await fetch("https://unpkg.com/use-m/use.js")).text(),
 );
 
 // Import command-stream for shell command execution
-const { $ } = await use('command-stream');
+const { $ } = await use("command-stream");
 
 try {
-  console.log('Running changeset version...');
+  console.log("Running changeset version...");
   await $`npx changeset version`;
 
-  console.log('\nSynchronizing package-lock.json...');
+  console.log("\nSynchronizing package-lock.json...");
   await $`npm install --package-lock-only`;
 
-  console.log('\n✅ Version bump complete with synchronized package-lock.json');
+  console.log("\n✅ Version bump complete with synchronized package-lock.json");
 } catch (error) {
-  console.error('Error during version bump:', error.message);
+  console.error("Error during version bump:", error.message);
   if (process.env.DEBUG) {
-    console.error('Stack trace:', error.stack);
+    console.error("Stack trace:", error.stack);
   }
   process.exit(1);
 }

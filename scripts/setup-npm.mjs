@@ -12,11 +12,11 @@
 
 // Load use-m dynamically
 const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
+  await (await fetch("https://unpkg.com/use-m/use.js")).text(),
 );
 
 // Import command-stream for shell command execution
-const { $ } = await use('command-stream');
+const { $ } = await use("command-stream");
 
 try {
   // Get current npm version
@@ -32,6 +32,6 @@ try {
   const updatedVersion = updatedResult.stdout.trim();
   console.log(`Updated npm version: ${updatedVersion}`);
 } catch (error) {
-  console.error('Error updating npm:', error.message);
+  console.error("Error updating npm:", error.message);
   process.exit(1);
 }

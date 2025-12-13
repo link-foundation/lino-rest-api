@@ -49,6 +49,7 @@ curl -X POST \
 ### `LinoAPI`
 
 Class with decorator methods:
+
 - `@api.get(path)` - Register GET endpoint
 - `@api.post(path)` - Register POST endpoint
 - `@api.put(path)` - Register PUT endpoint
@@ -59,6 +60,7 @@ Class with decorator methods:
 ### Handler Arguments
 
 Handlers can accept these special arguments:
+
 - `request` - The FastAPI request object
 - `body` - The decoded LINO request body
 

@@ -10,37 +10,37 @@
  * - lino-arguments: Unified configuration from CLI args, env vars, and .lenv files
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync } from "fs";
 
 // Load use-m dynamically
 const { use } = eval(
-  await (await fetch('https://unpkg.com/use-m/use.js')).text()
+  await (await fetch("https://unpkg.com/use-m/use.js")).text(),
 );
 
 // Import link-foundation libraries
-const { $ } = await use('command-stream');
-const { makeConfig } = await use('lino-arguments');
+const { $ } = await use("command-stream");
+const { makeConfig } = await use("lino-arguments");
 
 // Parse CLI arguments using lino-arguments
 const config = makeConfig({
   yargs: ({ yargs, getenv }) =>
     yargs
-      .option('release-version', {
-        type: 'string',
-        default: getenv('RELEASE_VERSION', ''),
-        describe: 'Version number to release (e.g., 1.0.0)',
+      .option("release-version", {
+        type: "string",
+        default: getenv("RELEASE_VERSION", ""),
+        describe: "Version number to release (e.g., 1.0.0)",
       })
-      .option('repository', {
-        type: 'string',
-        default: getenv('REPOSITORY', ''),
-        describe: 'GitHub repository (owner/repo)',
+      .option("repository", {
+        type: "string",
+        default: getenv("REPOSITORY", ""),
+        describe: "GitHub repository (owner/repo)",
       }),
 });
 
 const { releaseVersion, repository } = config;
 
 if (!releaseVersion || !repository) {
-  console.error('Error: Both --release-version and --repository are required');
+  console.error("Error: Both --release-version and --repository are required");
   process.exit(1);
 }
 
@@ -51,12 +51,12 @@ if (!releaseVersion || !repository) {
  */
 function extractReleaseNotes(version) {
   try {
-    const changelog = readFileSync('./python/CHANGELOG.md', 'utf8');
+    const changelog = readFileSync("./python/CHANGELOG.md", "utf8");
 
     // Find the section for this version
     // Pattern: ## [version] - date
     const versionRegex = new RegExp(
-      `## \\[${version.replace(/\./g, '\\.')}\\][^\\n]*\\n([\\s\\S]*?)(?=\\n## |$)`
+      `## \\[${version.replace(/\./g, "\\.")}\\][^\\n]*\\n([\\s\\S]*?)(?=\\n## |$)`,
     );
     const match = changelog.match(versionRegex);
 
@@ -67,7 +67,7 @@ function extractReleaseNotes(version) {
 
     return match[1].trim();
   } catch (error) {
-    console.error('Error reading CHANGELOG.md:', error.message);
+    console.error("Error reading CHANGELOG.md:", error.message);
     return null;
   }
 }
@@ -77,7 +77,7 @@ async function main() {
     const releaseNotes = extractReleaseNotes(releaseVersion);
 
     if (!releaseNotes) {
-      console.error('Failed to extract release notes');
+      console.error("Failed to extract release notes");
       process.exit(1);
     }
 
@@ -97,7 +97,7 @@ async function main() {
 
     console.log(`✅ Created GitHub release for v${releaseVersion}`);
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error("Error:", error.message);
     if (process.env.DEBUG) {
       console.error(error.stack);
     }

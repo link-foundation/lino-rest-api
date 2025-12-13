@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2024-12-13
 
 ### Added
+
 - Initial release with LINO REST API framework
 - FastAPI middleware for Links Notation parsing
 - Basic server implementation with uvicorn

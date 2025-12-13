@@ -1,5 +1,5 @@
 ---
-'lino-rest-api': patch
+"lino-rest-api": patch
 ---
 
 Add release workflow with changeset support and update to Python 3.13 only

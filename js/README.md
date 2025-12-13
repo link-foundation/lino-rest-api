@@ -13,22 +13,22 @@ bun add lino-rest-api
 ## Quick Start
 
 ```javascript
-import { createLinoApp } from 'lino-rest-api';
+import { createLinoApp } from "lino-rest-api";
 
 const app = createLinoApp();
 
 // GET endpoint - automatically encodes response as LINO
-app.get('/hello', () => {
-  return { message: 'Hello, Links Notation!' };
+app.get("/hello", () => {
+  return { message: "Hello, Links Notation!" };
 });
 
 // POST endpoint - automatically decodes LINO request body
-app.post('/echo', (req) => {
+app.post("/echo", (req) => {
   return { echoed: req.body };
 });
 
 app.listen(3000, () => {
-  console.log('LINO REST API running on port 3000');
+  console.log("LINO REST API running on port 3000");
 });
 ```
 
@@ -54,6 +54,7 @@ Creates a new LINO-enabled Express application.
 ### `LinoApp`
 
 Class with methods:
+
 - `get(path, handler)` - Register GET endpoint
 - `post(path, handler)` - Register POST endpoint
 - `put(path, handler)` - Register PUT endpoint
