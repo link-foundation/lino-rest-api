@@ -177,6 +177,9 @@ jobs:
       - name: Run tests
         run: pytest tests/ -v
 
+      - name: Run linting (ruff)
+        run: ruff check src/
+
   # Release - only runs on main after tests pass (for push events)
   release:
     name: Release
