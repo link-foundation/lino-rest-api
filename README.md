@@ -18,12 +18,12 @@ This repository provides proof-of-concept implementations of REST API frameworks
 ### JavaScript (Express.js/Bun)
 
 ```javascript
-import { createLinoApp } from 'lino-rest-api';
+import { createLinoApp } from "lino-rest-api";
 
 const app = createLinoApp();
 
-app.get('/hello', () => {
-  return { message: 'Hello, Links Notation!' };
+app.get("/hello", () => {
+  return { message: "Hello, Links Notation!" };
 });
 
 app.listen(3000);

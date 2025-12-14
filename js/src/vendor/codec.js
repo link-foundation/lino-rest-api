@@ -5,22 +5,22 @@
  * until the package is published to npm.
  */
 
-import { Parser, Link } from 'links-notation';
+import { Parser, Link } from "links-notation";
 
 /**
  * Codec for encoding/decoding JavaScript objects to/from Links Notation.
  */
 export class ObjectCodec {
   // Type identifiers
-  static TYPE_NULL = 'null';
-  static TYPE_UNDEFINED = 'undefined';
-  static TYPE_BOOL = 'bool';
-  static TYPE_INT = 'int';
-  static TYPE_FLOAT = 'float';
-  static TYPE_STR = 'str';
-  static TYPE_ARRAY = 'array';
-  static TYPE_OBJECT = 'object';
-  static TYPE_REF = 'ref';
+  static TYPE_NULL = "null";
+  static TYPE_UNDEFINED = "undefined";
+  static TYPE_BOOL = "bool";
+  static TYPE_INT = "int";
+  static TYPE_FLOAT = "float";
+  static TYPE_STR = "str";
+  static TYPE_ARRAY = "array";
+  static TYPE_OBJECT = "object";
+  static TYPE_REF = "ref";
 
   constructor() {
     this.parser = new Parser();
@@ -38,7 +38,7 @@ export class ObjectCodec {
    */
   _makeLink(...parts) {
     // Each part becomes a Link with that id
-    const values = parts.map(part => new Link(part));
+    const values = parts.map((part) => new Link(part));
     return new Link(undefined, values);
   }
 
@@ -83,7 +83,7 @@ export class ObjectCodec {
   _encodeValue(obj, visited = new Set()) {
     // Check if we've seen this object before (for circular references and shared objects)
     // Only track objects and arrays (mutable types)
-    if (obj !== null && (typeof obj === 'object')) {
+    if (obj !== null && typeof obj === "object") {
       if (this._encodeMemo.has(obj)) {
         // Return a reference to the previously encoded object
         const refId = this._encodeMemo.get(obj);
@@ -121,20 +121,20 @@ export class ObjectCodec {
       return this._makeLink(ObjectCodec.TYPE_UNDEFINED);
     }
 
-    if (typeof obj === 'boolean') {
+    if (typeof obj === "boolean") {
       return this._makeLink(ObjectCodec.TYPE_BOOL, String(obj));
     }
 
-    if (typeof obj === 'number') {
+    if (typeof obj === "number") {
       // Handle special float values
       if (Number.isNaN(obj)) {
-        return this._makeLink(ObjectCodec.TYPE_FLOAT, 'NaN');
+        return this._makeLink(ObjectCodec.TYPE_FLOAT, "NaN");
       }
       if (!Number.isFinite(obj)) {
         if (obj > 0) {
-          return this._makeLink(ObjectCodec.TYPE_FLOAT, 'Infinity');
+          return this._makeLink(ObjectCodec.TYPE_FLOAT, "Infinity");
         } else {
-          return this._makeLink(ObjectCodec.TYPE_FLOAT, '-Infinity');
+          return this._makeLink(ObjectCodec.TYPE_FLOAT, "-Infinity");
         }
       }
       // Check if it's an integer
@@ -144,9 +144,9 @@ export class ObjectCodec {
       return this._makeLink(ObjectCodec.TYPE_FLOAT, String(obj));
     }
 
-    if (typeof obj === 'string') {
+    if (typeof obj === "string") {
       // Encode strings as base64 to handle special characters, newlines, etc.
-      const b64Encoded = Buffer.from(obj, 'utf-8').toString('base64');
+      const b64Encoded = Buffer.from(obj, "utf-8").toString("base64");
       return this._makeLink(ObjectCodec.TYPE_STR, b64Encoded);
     }
 
@@ -162,7 +162,7 @@ export class ObjectCodec {
       return new Link(undefined, parts);
     }
 
-    if (typeof obj === 'object') {
+    if (typeof obj === "object") {
       const refId = this._encodeMemo.get(obj);
       // Encode as: (object ref_id (key0 value0) (key1 value1) ...)
       const parts = [new Link(ObjectCodec.TYPE_OBJECT), new Link(refId)];
@@ -215,7 +215,7 @@ export class ObjectCodec {
       if (link.values.length > 1) {
         const boolValue = link.values[1];
         if (boolValue && boolValue.id) {
-          return boolValue.id === 'true';
+          return boolValue.id === "true";
         }
       }
       return false;
@@ -236,11 +236,11 @@ export class ObjectCodec {
         const floatValue = link.values[1];
         if (floatValue && floatValue.id) {
           const valueStr = floatValue.id;
-          if (valueStr === 'NaN') {
+          if (valueStr === "NaN") {
             return NaN;
-          } else if (valueStr === 'Infinity') {
+          } else if (valueStr === "Infinity") {
             return Infinity;
-          } else if (valueStr === '-Infinity') {
+          } else if (valueStr === "-Infinity") {
             return -Infinity;
           } else {
             return parseFloat(valueStr);
@@ -257,14 +257,14 @@ export class ObjectCodec {
           const b64Str = strValue.id;
           // Decode from base64
           try {
-            return Buffer.from(b64Str, 'base64').toString('utf-8');
+            return Buffer.from(b64Str, "base64").toString("utf-8");
           } catch (e) {
             // If decode fails, return the raw value
             return b64Str;
           }
         }
       }
-      return '';
+      return "";
     }
 
     if (typeMarker === ObjectCodec.TYPE_REF) {
@@ -278,7 +278,7 @@ export class ObjectCodec {
           }
         }
       }
-      throw new Error('Unknown reference in link');
+      throw new Error("Unknown reference in link");
     }
 
     if (typeMarker === ObjectCodec.TYPE_ARRAY) {

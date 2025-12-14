@@ -5,7 +5,7 @@
  * instead of JSON for data exchange.
  */
 
-import { createLinoApp } from './app.js';
+import { createLinoApp } from "./app.js";
 
 const app = createLinoApp();
 
@@ -14,7 +14,7 @@ const items = new Map();
 let nextId = 1;
 
 // GET /items - List all items
-app.get('/items', (req) => {
+app.get("/items", (req) => {
   return {
     items: Array.from(items.values()),
     count: items.size,
@@ -22,12 +22,12 @@ app.get('/items', (req) => {
 });
 
 // GET /items/:id - Get item by ID
-app.get('/items/:id', (req, res) => {
+app.get("/items/:id", (req, res) => {
   const id = parseInt(req.params.id, 10);
   const item = items.get(id);
 
   if (!item) {
-    res.lino({ error: 'Item not found' }, 404);
+    res.lino({ error: "Item not found" }, 404);
     return;
   }
 
@@ -35,7 +35,7 @@ app.get('/items/:id', (req, res) => {
 });
 
 // POST /items - Create new item
-app.post('/items', (req) => {
+app.post("/items", (req) => {
   const id = nextId++;
   const item = {
     id,
@@ -49,11 +49,11 @@ app.post('/items', (req) => {
 });
 
 // PUT /items/:id - Update item
-app.put('/items/:id', (req, res) => {
+app.put("/items/:id", (req, res) => {
   const id = parseInt(req.params.id, 10);
 
   if (!items.has(id)) {
-    res.lino({ error: 'Item not found' }, 404);
+    res.lino({ error: "Item not found" }, 404);
     return;
   }
 
@@ -69,11 +69,11 @@ app.put('/items/:id', (req, res) => {
 });
 
 // DELETE /items/:id - Delete item
-app.delete('/items/:id', (req, res) => {
+app.delete("/items/:id", (req, res) => {
   const id = parseInt(req.params.id, 10);
 
   if (!items.has(id)) {
-    res.lino({ error: 'Item not found' }, 404);
+    res.lino({ error: "Item not found" }, 404);
     return;
   }
 
@@ -83,13 +83,15 @@ app.delete('/items/:id', (req, res) => {
 });
 
 // Health check endpoint
-app.get('/health', () => {
-  return { status: 'ok', timestamp: new Date().toISOString() };
+app.get("/health", () => {
+  return { status: "ok", timestamp: new Date().toISOString() };
 });
 
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`LINO REST API server running on port ${PORT}`);
-  console.log(`Try: curl -H "Content-Type: text/lino" http://localhost:${PORT}/health`);
+  console.log(
+    `Try: curl -H "Content-Type: text/lino" http://localhost:${PORT}/health`,
+  );
 });
