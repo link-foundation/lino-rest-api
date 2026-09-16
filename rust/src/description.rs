@@ -34,6 +34,21 @@ impl ServiceInfo {
             description: None,
         }
     }
+
+    /// The same service carrying a prose description.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lino_rest_api::description::ServiceInfo;
+    ///
+    /// let info = ServiceInfo::new("Tasks API", "1.0.0").describing("A task list");
+    /// assert_eq!(info.description.as_deref(), Some("A task list"));
+    /// ```
+    pub fn describing<D: Into<String>>(mut self, description: D) -> Self {
+        self.description = Some(description.into());
+        self
+    }
 }
 
 /// The schema every Links Notation body is declared with.
