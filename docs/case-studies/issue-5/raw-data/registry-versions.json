@@ -1,0 +1,21 @@
+{
+  "collected_at": "2026-09-16",
+  "note": "Latest published versions of the packages this repository depends on or ships.",
+  "packages": {
+    "links-notation": {
+      "npm": "0.20.0",
+      "pypi": "0.20.0",
+      "crates_io": "0.20.0"
+    },
+    "lino-objects-codec": {
+      "npm": "0.8.0",
+      "pypi": null,
+      "crates_io": "0.7.0"
+    },
+    "lino-rest-api": {
+      "npm": null,
+      "pypi": null,
+      "crates_io": null
+    }
+  }
+}

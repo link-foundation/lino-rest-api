@@ -1,6 +1,6 @@
 {
   "name": "lino-rest-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "REST API framework and client using Links Notation (LINO) instead of JSON",
   "type": "module",
   "main": "src/index.js",
