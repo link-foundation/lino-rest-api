@@ -154,7 +154,11 @@ def __getattr__(name: str):
     if name in _FASTAPI_ADAPTER_NAMES:
         from . import fastapi_adapter
 
-        return getattr(fastapi_adapter, name)
+        value = getattr(fastapi_adapter, name)
+        # Bind it in the package, so that later lookups skip this function and
+        # tools that read the module dictionary — pdoc, for one — find it.
+        globals()[name] = value
+        return value
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [

@@ -184,3 +184,6 @@ docs/site/
 
 # Rust build artifacts
 rust/target/
+
+# Playwright MCP session files
+.playwright-mcp/

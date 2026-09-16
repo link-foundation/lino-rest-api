@@ -6,6 +6,8 @@ These cover the surface earlier releases exposed (``LinoAPI`` and
 implementation.
 """
 
+import pytest
+
 from lino_rest_api.app import LinoAPI
 from lino_rest_api.middleware import LINO_CONTENT_TYPE, LinoResponse
 from lino_rest_api.vendor import decode, encode
@@ -98,3 +100,26 @@ def test_lino_response_encodes_content():
 def test_lino_response_status_code():
     response = LinoResponse(content={"error": "not found"}, status_code=404)
     assert response.status_code == 404
+
+
+def test_package_resolves_the_adapter_names_lazily():
+    import lino_rest_api
+
+    assert lino_rest_api.LinoAPI is LinoAPI
+
+
+def test_resolved_names_are_bound_in_the_package():
+    """A resolved name lands in the module dictionary, where pdoc reads it."""
+    import lino_rest_api
+    from lino_rest_api import fastapi_adapter
+
+    assert lino_rest_api.lino_request_handler is fastapi_adapter.lino_request_handler
+    assert "lino_request_handler" in vars(lino_rest_api)
+
+
+def test_unknown_names_are_still_attribute_errors():
+    import lino_rest_api
+
+    missing = "no_such_name"
+    with pytest.raises(AttributeError):
+        getattr(lino_rest_api, missing)

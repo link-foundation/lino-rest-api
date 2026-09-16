@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="lino-rest-api">
+  <rect width="64" height="64" rx="14" fill="#2f6f4f" />
+  <g fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round">
+    <path d="M22 16C12 24 12 40 22 48" />
+    <path d="M42 16c10 8 10 24 0 32" />
+    <path d="M32 24v16" />
+  </g>
+</svg>

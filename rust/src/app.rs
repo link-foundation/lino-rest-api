@@ -7,7 +7,7 @@
 //! details, automatic `HEAD`, automatic `OPTIONS`, `405 Method Not Allowed` with
 //! `Allow`, CORS and a machine-readable service description.
 //!
-//! [`crate::serve`] runs it over HTTP; anything else that can build a
+//! [`mod@crate::serve`] runs it over HTTP; anything else that can build a
 //! [`RawRequest`] can run it too.
 
 use std::collections::HashMap;
