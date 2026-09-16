@@ -178,3 +178,6 @@ pytest_cache/
 
 # CI logs
 ci-logs/
+
+# Generated documentation site
+docs/site/
