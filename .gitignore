@@ -178,3 +178,12 @@ pytest_cache/
 
 # CI logs
 ci-logs/
+
+# Generated documentation site
+docs/site/
+
+# Rust build artifacts
+rust/target/
+
+# Playwright MCP session files
+.playwright-mcp/

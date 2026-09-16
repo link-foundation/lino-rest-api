@@ -1,0 +1,1 @@
+{"body":"Add `--server` option to start server listening on a port. That can be implemented as websocket server.","createdAt":"2025-07-14T06:33:31Z","number":30,"state":"OPEN","title":"LiNo protocol server mode (LINO API)"}

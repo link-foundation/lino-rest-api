@@ -1,60 +1,117 @@
 /**
- * Basic usage example for lino-rest-api.
+ * A complete Links Notation REST service and a client that talks to it.
  *
- * This example demonstrates how to create a simple REST API
- * that uses Links Notation (LINO) instead of JSON.
+ * Run with `npm run example` from the `js` directory. The script starts a server
+ * on an ephemeral port, drives every part of the protocol through the client and
+ * prints the wire representations, so the output doubles as a protocol tour.
  */
 
-import { createLinoApp, encode, decode } from "../src/index.js";
+import {
+  LINO_CONTENT_TYPE,
+  MemoryStore,
+  createLinoApp,
+  createLinoClient,
+  encode,
+} from "../src/index.js";
 
-// Create a new LINO-enabled Express app
-const app = createLinoApp();
-
-// Simple GET endpoint - returns data automatically encoded as LINO
-app.get("/hello", () => {
-  return {
-    message: "Hello, Links Notation!",
-    timestamp: new Date().toISOString(),
-  };
+const app = createLinoApp({
+  title: "Tasks API",
+  version: "1.0.0",
+  description: "A task list served as Links Notation instead of JSON",
+  cors: true,
 });
 
-// POST endpoint - receives LINO-encoded body
-app.post("/echo", (req) => {
-  console.log("Received body:", req.body);
-  return {
-    echoed: req.body,
-    receivedAt: new Date().toISOString(),
-  };
+const tasks = new MemoryStore();
+tasks.create({ title: "Write the specification", done: true, priority: 1 });
+tasks.create({ title: "Implement the server", done: false, priority: 2 });
+tasks.create({ title: "Implement the client", done: false, priority: 3 });
+
+// One call registers list, create, get, replace, merge and delete, together with
+// automatic HEAD, automatic OPTIONS, 405, entity tags and problem details.
+app.resource("/tasks", tasks, { name: "task" });
+
+app.get("/health", () => ({ status: "ok" }), {
+  summary: "Liveness probe",
 });
 
-// Example of manual encoding/decoding
-console.log("\n=== Links Notation Encoding Demo ===\n");
+const server = app.listen(0);
+await new Promise((resolve) => server.once("listening", resolve));
+const base = `http://127.0.0.1:${server.address().port}`;
+const client = createLinoClient(base);
 
-const sampleData = {
-  name: "Alice",
-  age: 30,
-  active: true,
-  tags: ["developer", "nodejs"],
-};
+/**
+ * Print a labelled section.
+ *
+ * @param {string} title - Section title
+ * @returns {void}
+ */
+function section(title) {
+  console.log(`\n=== ${title} ===`);
+}
 
-const encoded = encode(sampleData);
-console.log("Original JavaScript object:");
-console.log(JSON.stringify(sampleData, null, 2));
-console.log("\nEncoded as Links Notation:");
-console.log(encoded);
+try {
+  section("The service describes itself");
+  const description = await client.describe();
+  console.log(encode(description));
 
-const decoded = decode(encoded);
-console.log("\nDecoded back to JavaScript:");
-console.log(JSON.stringify(decoded, null, 2));
+  section("Create a task");
+  const created = await client.post("/tasks", {
+    title: "Ship the release",
+    done: false,
+    priority: 4,
+  });
+  console.log(`status   ${created.status}`);
+  console.log(`location ${created.location}`);
+  console.log(`etag     ${created.etag}`);
+  console.log(encode(created.data));
 
-// Start the server
-const PORT = 3001;
-app.listen(PORT, () => {
-  console.log(`\n=== Server Running ===`);
-  console.log(`LINO REST API example server running on port ${PORT}`);
-  console.log(`\nTry these commands:`);
-  console.log(`  curl http://localhost:${PORT}/hello`);
-  console.log(
-    `  curl -X POST -H "Content-Type: text/lino" -d '(dict obj_0)' http://localhost:${PORT}/echo`,
+  section("List, filter, sort and paginate");
+  const page = await client.list("/tasks", {
+    done: false,
+    sort: "-priority",
+    limit: 2,
+  });
+  console.log(encode(page));
+
+  section("The raw wire format");
+  const raw = await fetch(`${base}/tasks/1`, {
+    headers: { Accept: LINO_CONTENT_TYPE },
+  });
+  console.log(`content-type ${raw.headers.get("content-type")}`);
+  console.log(await raw.text());
+
+  section("Conditional requests");
+  const current = await client.get("/tasks/1");
+  const cached = await client.get("/tasks/1", { ifNoneMatch: current.etag });
+  console.log(`unchanged    ${cached.status} (nothing was transferred)`);
+
+  const updated = await client.patch(
+    "/tasks/1",
+    { done: false },
+    { ifMatch: current.etag },
   );
-});
+  console.log(`updated      ${updated.status} with a new etag ${updated.etag}`);
+
+  try {
+    await client.patch("/tasks/1", { done: true }, { ifMatch: current.etag });
+  } catch (error) {
+    console.log(`lost update  ${error.status} ${error.message}`);
+  }
+
+  section("Errors are problem details, in Links Notation");
+  try {
+    await client.get("/tasks/999");
+  } catch (error) {
+    console.log(encode(error.problem));
+  }
+
+  section("Allowed methods");
+  console.log(`/tasks     ${(await client.options("/tasks")).join(", ")}`);
+  console.log(`/tasks/1   ${(await client.options("/tasks/1")).join(", ")}`);
+
+  section("Delete");
+  const deleted = await client.delete(created.location);
+  console.log(`status ${deleted.status}`);
+} finally {
+  server.close();
+}

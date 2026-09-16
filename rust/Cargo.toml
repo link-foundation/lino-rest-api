@@ -1,0 +1,26 @@
+[package]
+name = "lino-rest-api"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.85"
+description = "REST API framework and client using Links Notation (LINO) instead of JSON"
+license = "Unlicense"
+repository = "https://github.com/link-foundation/lino-rest-api"
+homepage = "https://link-foundation.github.io/lino-rest-api/"
+documentation = "https://docs.rs/lino-rest-api"
+readme = "README.md"
+keywords = ["rest-api", "links-notation", "lino", "axum", "openapi"]
+categories = ["web-programming::http-server", "web-programming::http-client"]
+
+[dependencies]
+async-trait = "0.1.92"
+axum = "0.8.9"
+links-notation = "0.20.0"
+lino-objects-codec = "0.7.0"
+reqwest = { version = "0.13.5", features = ["json"] }
+serde_json = { version = "1.0.151", features = ["preserve_order"] }
+sha2 = "0.11.0"
+tokio = { version = "1.53.1", features = ["full"] }
+
+[dev-dependencies]
+tokio-test = "0.4.4"

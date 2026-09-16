@@ -180,13 +180,51 @@ jobs:
       - name: Run linting (ruff)
         run: ruff check src/
 
+  test-rust:
+    name: Test Rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: [changeset-check]
+    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success')
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+    defaults:
+      run:
+        working-directory: rust
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache the build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run linting (clippy)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Check the package
+        run: cargo package --allow-dirty
+
   # Release - only runs on main after tests pass (for push events)
   release:
     name: Release
-    needs: [lint, test-js, test-python]
+    needs: [lint, test-js, test-python, test-rust]
     # Use always() to ensure this job runs even if changeset-check was skipped
     # This is needed because lint/test jobs have a transitive dependency on changeset-check
-    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.lint.result == 'success' && needs.test-js.result == 'success' && needs.test-python.result == 'success'
+    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.lint.result == 'success' && needs.test-js.result == 'success' && needs.test-python.result == 'success' && needs.test-rust.result == 'success'
     runs-on: ubuntu-latest
     # Permissions required for PyPI OIDC trusted publishing
     permissions:
