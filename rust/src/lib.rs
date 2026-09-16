@@ -15,6 +15,7 @@
 #![allow(clippy::result_large_err)]
 
 pub mod app;
+pub mod client;
 pub mod codec;
 pub mod collection;
 pub mod cors;
@@ -29,5 +30,6 @@ pub mod request;
 pub mod resource;
 pub mod response;
 pub mod router;
+pub mod serve;
 pub mod store;
 pub mod value;
