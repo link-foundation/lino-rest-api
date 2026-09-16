@@ -181,3 +181,6 @@ ci-logs/
 
 # Generated documentation site
 docs/site/
+
+# Rust build artifacts
+rust/target/
