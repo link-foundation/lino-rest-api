@@ -17,7 +17,7 @@ first use, so this module works without FastAPI installed.
 import inspect
 import json
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Union
 
 from .codec import decode, encode
 from .cors import cors_headers
@@ -89,6 +89,10 @@ OPENAPI_PATH = "/.well-known/openapi.json"
 
 Handler = Callable[[LinoHttpRequest], Any | Awaitable[Any]]
 
+#: What a registration call returns: the application, or the decorator that
+#: registers a handler written in place.
+Registration = Union["LinoApp", Callable[[Handler], Handler]]
+
 
 class LinoApp:
     """An ASGI application that speaks Links Notation."""
@@ -145,11 +149,15 @@ class LinoApp:
         self,
         method: str,
         path: str,
-        handler: Handler,
+        handler: Handler | None = None,
         meta: dict[str, Any] | None = None,
-    ) -> "LinoApp":
+    ) -> Registration:
         """
         Register a handler for a method and path.
+
+        Given a handler the route is registered and the application returned, so
+        that registrations chain; without one a decorator is returned, so that the
+        handler can be written where it is registered.
 
         Args:
             method: HTTP method
@@ -158,7 +166,7 @@ class LinoApp:
             meta: Description metadata, for example ``summary``
 
         Returns:
-            This application, for chaining
+            This application, or a decorator when the handler is omitted
 
         Raises:
             TypeError: When the method is not one of :data:`HTTP_METHODS`
@@ -166,13 +174,25 @@ class LinoApp:
         normalized = method.upper()
         if normalized not in HTTP_METHODS:
             raise TypeError(f"Unsupported HTTP method: {method}")
+
+        if handler is None:
+
+            def register(function: Handler) -> Handler:
+                self.route(normalized, path, function, meta)
+                return function
+
+            return register
+
         self.routes.register(normalized, path, meta)
         self.handlers[(normalized, path)] = handler
         return self
 
     def get(
-        self, path: str, handler: Handler, meta: dict[str, Any] | None = None
-    ) -> "LinoApp":
+        self,
+        path: str,
+        handler: Handler | None = None,
+        meta: dict[str, Any] | None = None,
+    ) -> Registration:
         """
         Register a ``GET`` handler.
 
@@ -182,13 +202,16 @@ class LinoApp:
             meta: Description metadata
 
         Returns:
-            This application, for chaining
+            This application, or a decorator when the handler is omitted
         """
         return self.route("GET", path, handler, meta)
 
     def post(
-        self, path: str, handler: Handler, meta: dict[str, Any] | None = None
-    ) -> "LinoApp":
+        self,
+        path: str,
+        handler: Handler | None = None,
+        meta: dict[str, Any] | None = None,
+    ) -> Registration:
         """
         Register a ``POST`` handler.
 
@@ -198,13 +221,16 @@ class LinoApp:
             meta: Description metadata
 
         Returns:
-            This application, for chaining
+            This application, or a decorator when the handler is omitted
         """
         return self.route("POST", path, handler, meta)
 
     def put(
-        self, path: str, handler: Handler, meta: dict[str, Any] | None = None
-    ) -> "LinoApp":
+        self,
+        path: str,
+        handler: Handler | None = None,
+        meta: dict[str, Any] | None = None,
+    ) -> Registration:
         """
         Register a ``PUT`` handler.
 
@@ -214,13 +240,16 @@ class LinoApp:
             meta: Description metadata
 
         Returns:
-            This application, for chaining
+            This application, or a decorator when the handler is omitted
         """
         return self.route("PUT", path, handler, meta)
 
     def patch(
-        self, path: str, handler: Handler, meta: dict[str, Any] | None = None
-    ) -> "LinoApp":
+        self,
+        path: str,
+        handler: Handler | None = None,
+        meta: dict[str, Any] | None = None,
+    ) -> Registration:
         """
         Register a ``PATCH`` handler.
 
@@ -230,13 +259,16 @@ class LinoApp:
             meta: Description metadata
 
         Returns:
-            This application, for chaining
+            This application, or a decorator when the handler is omitted
         """
         return self.route("PATCH", path, handler, meta)
 
     def delete(
-        self, path: str, handler: Handler, meta: dict[str, Any] | None = None
-    ) -> "LinoApp":
+        self,
+        path: str,
+        handler: Handler | None = None,
+        meta: dict[str, Any] | None = None,
+    ) -> Registration:
         """
         Register a ``DELETE`` handler.
 
@@ -246,7 +278,7 @@ class LinoApp:
             meta: Description metadata
 
         Returns:
-            This application, for chaining
+            This application, or a decorator when the handler is omitted
         """
         return self.route("DELETE", path, handler, meta)
 

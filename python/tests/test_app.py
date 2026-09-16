@@ -213,3 +213,26 @@ async def test_an_unsupported_scope_type_is_refused():
     app = build_app()
     with pytest.raises(NotImplementedError):
         await app({"type": "websocket"}, None, None)
+
+
+async def test_a_route_can_be_registered_with_a_decorator():
+    # ``app.get(path, handler)`` mirrors the JavaScript surface, but Python code
+    # reads better when the handler is written where it is registered.
+    app = create_lino_app()
+
+    @app.get("/health", meta={"summary": "Health check"})
+    def health(request):
+        return {"status": "ok"}
+
+    @app.post("/echo")
+    async def echo(request):
+        return {"echoed": request.body}
+
+    # The decorator returns the handler itself, so the name stays callable.
+    assert health({}) == {"status": "ok"}
+
+    async with serve(app) as api:
+        assert (await api.client.get("/health")).data == {"status": "ok"}
+        assert (await api.client.post("/echo", {"a": 1})).data == {"echoed": {"a": 1}}
+        routes = {route["path"]: route for route in app.describe()["routes"]}
+        assert routes["/health"]["summary"] == "Health check"

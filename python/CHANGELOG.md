@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-16
+
+### Added
+
+- Full implementation of the Links Notation REST API specification
+  (`docs/spec/README.md`): content negotiation over `text/lino`,
+  `text/lino-line`, `text/lino-compact` and `application/json`, RFC 9457 problem
+  details, collection queries with pagination, strong entity tags and
+  conditional requests, CORS, automatic `HEAD`, `OPTIONS` and `405`, a service
+  description and an OpenAPI 3.1 document
+- `LinoApp`/`create_lino_app`: a plain ASGI application, free of any framework
+  dependency, with routes registered by call or by decorator
+- `MemoryStore` and `register_resource`/`app.resource`, turning any store —
+  synchronous or asynchronous — into a full CRUD collection
+- `LinoClient`, `AsyncLinoClient` and their factories, built on httpx
+- An optional prose `description` for the service, carried by both description
+  documents
+- A conformance suite (`tests/test_conformance.py`) and a live-server suite
+  (`tests/test_server.py`), mirroring the JavaScript package test for test
+
+### Changed
+
+- FastAPI is now optional (`pip install lino-rest-api[fastapi]`); the legacy
+  `LinoAPI` surface is still exported and is resolved on first use
+
+### Fixed
+
+- The JSON representation is now encoded with the same separators as the
+  JavaScript package, so both implementations produce the same entity tag for
+  the same value
+- Boolean query parameters are spelled `true`/`false` rather than Python's
+  `True`/`False`, so filters sent by the client are understood by the server
+
 ## [0.1.1] - 2025-12-14
 
 - Add release workflow with changeset support and update to Python 3.13 only
