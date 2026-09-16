@@ -114,6 +114,7 @@ export { appendVary } from "./headers.js";
 export { compilePathPattern, RouteTable, IMPLICIT_METHODS } from "./router.js";
 
 export {
+  infoObject,
   openApiDocument,
   pathParameters,
   serviceDescription,

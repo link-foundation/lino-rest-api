@@ -24,6 +24,22 @@ LINO_SCHEMA = {
 }
 
 
+def info_object(info: dict[str, str]) -> dict[str, str]:
+    """
+    Render the ``info`` member shared by both description documents.
+
+    Args:
+        info: ``title``, ``version`` and optional ``description`` of the service
+
+    Returns:
+        Info object, carrying ``description`` only when one was given
+    """
+    document = {"title": info["title"], "version": info["version"]}
+    if info.get("description"):
+        document["description"] = info["description"]
+    return document
+
+
 def service_description(
     info: dict[str, str],
     routes: list[dict[str, Any]],
@@ -33,7 +49,7 @@ def service_description(
     Build the native service description.
 
     Args:
-        info: ``title`` and ``version`` of the service
+        info: ``title``, ``version`` and optional ``description`` of the service
         routes: Route descriptions
         media_types: Representations the service can produce
 
@@ -42,7 +58,7 @@ def service_description(
     """
     return {
         "lino_api": LINO_API_DESCRIPTION_VERSION,
-        "info": {"title": info["title"], "version": info["version"]},
+        "info": info_object(info),
         "media_types": list(
             SUPPORTED_MEDIA_TYPES if media_types is None else media_types
         ),
@@ -88,7 +104,7 @@ def openapi_document(
     that a generated client knows it may ask for ``text/lino``.
 
     Args:
-        info: ``title`` and ``version`` of the service
+        info: ``title``, ``version`` and optional ``description`` of the service
         routes: Route descriptions
         media_types: Representations the service can produce
 
@@ -131,6 +147,6 @@ def openapi_document(
 
     return {
         "openapi": "3.1.0",
-        "info": {"title": info["title"], "version": info["version"]},
+        "info": info_object(info),
         "paths": paths,
     }

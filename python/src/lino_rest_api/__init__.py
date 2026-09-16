@@ -23,6 +23,7 @@ from .client import (
     build_query_string,
     create_async_lino_client,
     create_lino_client,
+    query_value,
 )
 from .codec import (
     decode,
@@ -48,6 +49,7 @@ from .cors import (
 )
 from .description import (
     LINO_API_DESCRIPTION_VERSION,
+    info_object,
     openapi_document,
     path_parameters,
     service_description,
@@ -195,6 +197,7 @@ __all__ = [
     "apply_collection_query",
     "build_problem_response",
     "build_query_string",
+    "query_value",
     "build_response",
     "collection_envelope",
     "compile_path_pattern",
@@ -221,6 +224,7 @@ __all__ = [
     "negotiate_request",
     "no_content",
     "ok",
+    "info_object",
     "openapi_document",
     "pagination_link_header",
     "parse_accept",

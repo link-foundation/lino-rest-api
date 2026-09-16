@@ -1,116 +1,66 @@
 """
-Example server demonstrating lino-rest-api usage.
+Demonstration server.
 
-This server provides a simple REST API using Links Notation
-instead of JSON for data exchange.
+Serves a full CRUD resource plus a health endpoint, entirely in Links Notation.
+Start it with ``python -m lino_rest_api.server`` and explore it with curl:
+
+.. code-block:: sh
+
+    curl -H 'Accept: text/lino' http://localhost:8000/.well-known/lino-api
+    curl -H 'Content-Type: text/lino' --data-binary $'(\\n  name "first"\\n)' \\
+      http://localhost:8000/items
 """
 
-from datetime import datetime
-from typing import Any
+import os
 
-from .app import LinoAPI
-from .middleware import LinoResponse
+from .app import create_lino_app
+from .request import LinoHttpRequest
+from .store import MemoryStore
 
-# Create the LINO API
-api = LinoAPI(
-    title="LINO REST API Demo",
-    description="Example REST API using Links Notation instead of JSON",
-    version="0.1.0",
+#: The store backing the ``/items`` resource.
+items = MemoryStore(
+    [
+        {"name": "first", "done": False},
+        {"name": "second", "done": True},
+    ]
 )
 
-# In-memory data store for demo
-items: dict[int, dict[str, Any]] = {}
-next_id = 1
+#: The ASGI application, ready for ``uvicorn lino_rest_api.server:app``.
+app = create_lino_app(
+    title="Items API",
+    description="A demonstration service that speaks Links Notation instead of JSON",
+    version="1.0.0",
+    cors=True,
+)
+
+app.resource("/items", items, name="item")
 
 
-@api.get("/items")
-def list_items():
-    """List all items."""
-    return {
-        "items": list(items.values()),
-        "count": len(items),
-    }
+def health(request: LinoHttpRequest) -> dict[str, object]:
+    """
+    Report that the service is alive.
+
+    Args:
+        request: Request being served
+
+    Returns:
+        Liveness payload
+    """
+    return {"status": "ok", "items": len(items.items)}
 
 
-@api.get("/items/{item_id}")
-async def get_item(request):
-    """Get item by ID."""
-    item_id = int(request.path_params.get("item_id"))
-    item = items.get(item_id)
-
-    if not item:
-        return LinoResponse(content={"error": "Item not found"}, status_code=404)
-
-    return item
+app.get("/health", health, {"summary": "Health check"})
 
 
-@api.post("/items")
-async def create_item(body):
-    """Create a new item."""
-    global next_id
+def main() -> None:
+    """Run the demonstration server."""
+    import uvicorn
 
-    item_id = next_id
-    next_id += 1
-
-    item = {
-        "id": item_id,
-        **(body or {}),
-        "created_at": datetime.now().isoformat(),
-    }
-
-    items[item_id] = item
-
-    return {"created": item}
-
-
-@api.put("/items/{item_id}")
-async def update_item(request, body):
-    """Update an item."""
-    item_id = int(request.path_params.get("item_id"))
-
-    if item_id not in items:
-        return LinoResponse(content={"error": "Item not found"}, status_code=404)
-
-    item = {
-        "id": item_id,
-        **(body or {}),
-        "updated_at": datetime.now().isoformat(),
-    }
-
-    items[item_id] = item
-
-    return {"updated": item}
-
-
-@api.delete("/items/{item_id}")
-async def delete_item(request):
-    """Delete an item."""
-    item_id = int(request.path_params.get("item_id"))
-
-    if item_id not in items:
-        return LinoResponse(content={"error": "Item not found"}, status_code=404)
-
-    del items[item_id]
-
-    return {"deleted": item_id}
-
-
-@api.get("/health")
-def health_check():
-    """Health check endpoint."""
-    return {
-        "status": "ok",
-        "timestamp": datetime.now().isoformat(),
-    }
-
-
-# Get the FastAPI app for uvicorn
-app = api.get_fastapi_app()
+    port = int(os.environ.get("PORT", "8000"))
+    print(f"LINO REST API server running on port {port}")
+    print(f'Try: curl -H "Accept: text/lino" http://localhost:{port}/health')
+    uvicorn.run(app, host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":
-    import uvicorn
-
-    print("Starting LINO REST API server...")
-    print("Try: curl -H 'Content-Type: text/lino' http://localhost:8000/health")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    main()

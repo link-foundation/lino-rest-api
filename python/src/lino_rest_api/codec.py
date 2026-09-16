@@ -115,7 +115,10 @@ def encode_for(value: Any, media_type: str) -> str:
     if resolved == LINO_COMPACT_CONTENT_TYPE:
         return encode_compact_notation(value)
     if resolved == JSON_CONTENT_TYPE:
-        return json.dumps(value)
+        # The separators and the raw Unicode match ``JSON.stringify`` byte for
+        # byte, so that the entity tag of a representation (section 7) is the
+        # same whichever implementation of this specification serves it.
+        return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
     raise TypeError(f"Cannot encode to media type: {media_type}")
 
 

@@ -45,6 +45,7 @@ export class LinoApp {
    * @param {object} [options] - Application options
    * @param {string} [options.title] - Service title used in the description
    * @param {string} [options.version] - Service version used in the description
+   * @param {string} [options.description] - Prose description of the service
    * @param {boolean|object} [options.cors] - Enable CORS, optionally with a policy
    * @param {boolean} [options.describe] - Serve the service description (default true)
    * @param {string[]} [options.supported] - Representations the server may produce
@@ -59,6 +60,9 @@ export class LinoApp {
       title: options.title ?? "LINO REST API",
       version: options.version ?? "1.0.0",
     };
+    if (options.description) {
+      this.info.description = options.description;
+    }
     this.routes = new RouteTable();
 
     this.app = express();

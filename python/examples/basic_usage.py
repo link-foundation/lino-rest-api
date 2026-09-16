@@ -1,75 +1,134 @@
 """
-Basic usage example for lino-rest-api.
+A complete Links Notation REST service and a client that talks to it.
 
-This example demonstrates how to create a simple REST API
-that uses Links Notation (LINO) instead of JSON.
+Run with ``python examples/basic_usage.py`` from the ``python`` directory. The
+script starts a server on an ephemeral port, drives every part of the protocol
+through the client and prints the wire representations, so the output doubles as
+a protocol tour.
 """
 
-from lino_rest_api.vendor import encode, decode
+import asyncio
+import threading
+import time
 
-from lino_rest_api import LinoAPI
+import httpx
+import uvicorn
 
-
-# Create a new LINO-enabled FastAPI app
-api = LinoAPI(
-    title="LINO Example API",
-    description="Example REST API using Links Notation",
+from lino_rest_api import (
+    LINO_CONTENT_TYPE,
+    AsyncLinoClient,
+    LinoClientError,
+    MemoryStore,
+    create_lino_app,
+    encode,
 )
 
+app = create_lino_app(
+    title="Tasks API",
+    version="1.0.0",
+    description="A task list served as Links Notation instead of JSON",
+    cors=True,
+)
 
-# Simple GET endpoint - returns data automatically encoded as LINO
-@api.get("/hello")
-def hello():
-    from datetime import datetime
+tasks = MemoryStore()
+tasks.create({"title": "Write the specification", "done": True, "priority": 1})
+tasks.create({"title": "Implement the server", "done": False, "priority": 2})
+tasks.create({"title": "Implement the client", "done": False, "priority": 3})
 
-    return {
-        "message": "Hello, Links Notation!",
-        "timestamp": datetime.now().isoformat(),
-    }
+# One call registers list, create, get, replace, merge and delete, together with
+# automatic HEAD, automatic OPTIONS, 405, entity tags and problem details.
+app.resource("/tasks", tasks, name="task")
 
-
-# POST endpoint - receives LINO-encoded body
-@api.post("/echo")
-async def echo(body):
-    from datetime import datetime
-
-    print(f"Received body: {body}")
-    return {
-        "echoed": body,
-        "received_at": datetime.now().isoformat(),
-    }
+app.get("/health", lambda request: {"status": "ok"}, {"summary": "Liveness probe"})
 
 
-# Example of manual encoding/decoding
+def section(title: str) -> None:
+    """
+    Print a labelled section.
+
+    Args:
+        title: Section title
+    """
+    print(f"\n=== {title} ===")
+
+
+async def tour(base: str) -> None:
+    """
+    Drive the running service through every part of the protocol.
+
+    Args:
+        base: Base URL of the running service
+    """
+    async with AsyncLinoClient(base) as client:
+        section("The service describes itself")
+        print(encode(await client.describe()))
+
+        section("Create a task")
+        created = await client.post(
+            "/tasks",
+            {"title": "Ship the release", "done": False, "priority": 4},
+        )
+        print(f"status   {created.status}")
+        print(f"location {created.location}")
+        print(f"etag     {created.etag}")
+        print(encode(created.data))
+
+        section("List, filter, sort and paginate")
+        page = await client.list(
+            "/tasks", {"done": False, "sort": "-priority", "limit": 2}
+        )
+        print(encode(page))
+
+        section("The raw wire format")
+        async with httpx.AsyncClient() as http:
+            raw = await http.get(
+                f"{base}/tasks/1", headers={"Accept": LINO_CONTENT_TYPE}
+            )
+        print(f"content-type {raw.headers['content-type']}")
+        print(raw.text)
+
+        section("Conditional requests")
+        current = await client.get("/tasks/1")
+        cached = await client.get("/tasks/1", if_none_match=current.etag)
+        print(f"unchanged    {cached.status} (nothing was transferred)")
+
+        updated = await client.patch("/tasks/1", {"done": False}, if_match=current.etag)
+        print(f"updated      {updated.status} with a new etag {updated.etag}")
+
+        try:
+            await client.patch("/tasks/1", {"done": True}, if_match=current.etag)
+        except LinoClientError as error:
+            print(f"lost update  {error.status} {error}")
+
+        section("Errors are problem details, in Links Notation")
+        try:
+            await client.get("/tasks/999")
+        except LinoClientError as error:
+            print(encode(error.problem))
+
+        section("Allowed methods")
+        print(f"/tasks     {', '.join(await client.options('/tasks'))}")
+        print(f"/tasks/1   {', '.join(await client.options('/tasks/1'))}")
+
+        section("Delete")
+        print(f"status {(await client.delete(created.location)).status}")
+
+
+def main() -> None:
+    """Start the service on an ephemeral port and run the tour against it."""
+    config = uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning")
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        while not server.started:
+            time.sleep(0.01)
+        port = server.servers[0].sockets[0].getsockname()[1]
+        asyncio.run(tour(f"http://127.0.0.1:{port}"))
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)
+
+
 if __name__ == "__main__":
-    print("\n=== Links Notation Encoding Demo ===\n")
-
-    sample_data = {
-        "name": "Alice",
-        "age": 30,
-        "active": True,
-        "tags": ["developer", "python"],
-    }
-
-    encoded = encode(sample_data)
-    print("Original Python object:")
-    print(sample_data)
-    print("\nEncoded as Links Notation:")
-    print(encoded)
-
-    decoded = decode(encoded)
-    print("\nDecoded back to Python:")
-    print(decoded)
-
-    # Start the server
-    import uvicorn
-
-    print("\n=== Server Running ===")
-    print("LINO REST API example server running on port 8001")
-    print("\nTry these commands:")
-    print("  curl http://localhost:8001/hello")
-    print(
-        "  curl -X POST -H 'Content-Type: text/lino' -d '(dict obj_0)' http://localhost:8001/echo"
-    )
-
-    uvicorn.run(api.get_fastapi_app(), host="0.0.0.0", port=8001)
+    main()

@@ -5,6 +5,7 @@
 import { test, assert } from "test-anywhere";
 import {
   LINO_API_DESCRIPTION_VERSION,
+  infoObject,
   openApiDocument,
   pathParameters,
   serviceDescription,
@@ -60,4 +61,21 @@ test("every operation declares a default problem response", () => {
       assert.ok(operation.responses.default);
     }
   }
+});
+
+test("a prose description is carried by both documents", () => {
+  const described = { ...info, description: "A task list" };
+  assert.equal(
+    serviceDescription(described, routes).info.description,
+    "A task list",
+  );
+  assert.equal(
+    openApiDocument(described, routes).info.description,
+    "A task list",
+  );
+});
+
+test("the info object omits an absent description", () => {
+  assert.deepEqual(infoObject(info), info);
+  assert.ok(!("description" in infoObject({ ...info, description: "" })));
 });

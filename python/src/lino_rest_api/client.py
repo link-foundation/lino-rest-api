@@ -63,6 +63,24 @@ class LinoResponse:
     response: httpx.Response | None = None
 
 
+def query_value(value: Any) -> str:
+    """
+    Spell one query parameter value the way section 6.1 filters read it.
+
+    ``str(False)`` is ``"False"``, which no filter matches; booleans travel as
+    ``true`` and ``false``, exactly as they do from the JavaScript client.
+
+    Args:
+        value: Value of a query parameter
+
+    Returns:
+        Wire spelling of the value
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
 def build_query_string(query: dict[str, Any] | None) -> str:
     """
     Build a query string from a mapping, expanding list values.
@@ -80,7 +98,7 @@ def build_query_string(query: dict[str, Any] | None) -> str:
         if value is None:
             continue
         values = value if isinstance(value, list | tuple) else [value]
-        parameters.extend((name, str(entry)) for entry in values)
+        parameters.extend((name, query_value(entry)) for entry in values)
     encoded = urlencode(parameters)
     return f"?{encoded}" if encoded else ""
 

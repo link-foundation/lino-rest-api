@@ -98,6 +98,7 @@ class LinoApp:
         *,
         title: str = "LINO REST API",
         version: str = "1.0.0",
+        description: str | None = None,
         cors: bool | dict[str, Any] | None = None,
         describe: bool = True,
         supported: list[str] | None = None,
@@ -110,6 +111,7 @@ class LinoApp:
         Args:
             title: Service title used in the description
             version: Service version used in the description
+            description: Prose description of the service
             cors: Enable CORS, optionally with a policy
             describe: Serve the service description
             supported: Representations the server may produce
@@ -118,7 +120,9 @@ class LinoApp:
             default_limit: Default collection page size
             max_limit: Largest collection page size
         """
-        self.info = {"title": title, "version": version}
+        self.info: dict[str, str] = {"title": title, "version": version}
+        if description:
+            self.info["description"] = description
         self.cors = cors
         self.supported = supported
         self.max_body_bytes = max_body_bytes

@@ -13,9 +13,23 @@ import { SUPPORTED_MEDIA_TYPES } from "./media-type.js";
 export const LINO_API_DESCRIPTION_VERSION = "1.0";
 
 /**
+ * Render the `info` member shared by both description documents.
+ *
+ * @param {object} info - `title`, `version` and optional `description` of the service
+ * @returns {object} Info object, carrying `description` only when one was given
+ */
+export function infoObject(info) {
+  const document = { title: info.title, version: info.version };
+  if (info.description) {
+    document.description = info.description;
+  }
+  return document;
+}
+
+/**
  * Build the native service description.
  *
- * @param {object} info - `title` and `version` of the service
+ * @param {object} info - `title`, `version` and optional `description` of the service
  * @param {Array<{path: string, methods: string[], summary: string}>} routes - Route descriptions
  * @param {string[]} [mediaTypes] - Representations the service can produce
  * @returns {object} Description ready to be encoded as Links Notation
@@ -27,7 +41,7 @@ export function serviceDescription(
 ) {
   return {
     lino_api: LINO_API_DESCRIPTION_VERSION,
-    info: { title: info.title, version: info.version },
+    info: infoObject(info),
     media_types: [...mediaTypes],
     routes,
   };
@@ -65,7 +79,7 @@ const LINO_SCHEMA = {
  * Every request and response body is declared for all negotiable media types, so
  * that a generated client knows it may ask for `text/lino`.
  *
- * @param {object} info - `title` and `version` of the service
+ * @param {object} info - `title`, `version` and optional `description` of the service
  * @param {Array<{path: string, methods: string[], summary: string}>} routes - Route descriptions
  * @param {string[]} [mediaTypes] - Representations the service can produce
  * @returns {object} OpenAPI 3.1 document
@@ -113,7 +127,7 @@ export function openApiDocument(
 
   return {
     openapi: "3.1.0",
-    info: { title: info.title, version: info.version },
+    info: infoObject(info),
     paths,
   };
 }
