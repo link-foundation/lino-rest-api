@@ -146,6 +146,65 @@ fn write_json(value: &LinoValue, out: &mut String) {
     }
 }
 
+/// Encode a value as indented JSON, as `JSON.stringify(value, null, 2)` does.
+///
+/// The OpenAPI document is served this way, so that the document a JavaScript,
+/// a Python and a Rust service publish are the same bytes.
+///
+/// # Examples
+///
+/// ```
+/// use lino_rest_api::codec::to_json_pretty;
+/// use lino_rest_api::value::{int, object};
+///
+/// assert_eq!(to_json_pretty(&object([("a", int(1))])), "{\n  \"a\": 1\n}");
+/// ```
+pub fn to_json_pretty(value: &LinoValue) -> String {
+    let mut out = String::new();
+    write_json_pretty(value, 0, &mut out);
+    out
+}
+
+/// Append the indented JSON form of a value to a buffer.
+fn write_json_pretty(value: &LinoValue, depth: usize, out: &mut String) {
+    let outer = "  ".repeat(depth);
+    let inner = "  ".repeat(depth + 1);
+    match value {
+        // An empty collection stays on one line, as `JSON.stringify` writes it.
+        LinoValue::Array(items) if items.is_empty() => out.push_str("[]"),
+        LinoValue::Object(entries) if entries.is_empty() => out.push_str("{}"),
+        LinoValue::Array(items) => {
+            out.push_str("[\n");
+            for (index, item) in items.iter().enumerate() {
+                if index > 0 {
+                    out.push_str(",\n");
+                }
+                out.push_str(&inner);
+                write_json_pretty(item, depth + 1, out);
+            }
+            out.push('\n');
+            out.push_str(&outer);
+            out.push(']');
+        }
+        LinoValue::Object(entries) => {
+            out.push_str("{\n");
+            for (index, (key, item)) in entries.iter().enumerate() {
+                if index > 0 {
+                    out.push_str(",\n");
+                }
+                out.push_str(&inner);
+                out.push_str(&JsonValue::String(key.clone()).to_string());
+                out.push_str(": ");
+                write_json_pretty(item, depth + 1, out);
+            }
+            out.push('\n');
+            out.push_str(&outer);
+            out.push('}');
+        }
+        scalar => write_json(scalar, out),
+    }
+}
+
 /// Convert a [`serde_json::Value`] into a [`LinoValue`], keeping key order.
 pub fn from_json(value: &JsonValue) -> LinoValue {
     match value {

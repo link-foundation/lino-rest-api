@@ -14,6 +14,7 @@
 // in noise than it saves in moved bytes.
 #![allow(clippy::result_large_err)]
 
+pub mod app;
 pub mod codec;
 pub mod collection;
 pub mod cors;
@@ -21,8 +22,12 @@ pub mod description;
 pub mod etag;
 pub mod headers;
 pub mod media_type;
+pub mod middleware;
 pub mod problem;
 pub mod query;
+pub mod request;
+pub mod resource;
 pub mod response;
 pub mod router;
+pub mod store;
 pub mod value;

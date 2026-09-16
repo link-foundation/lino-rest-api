@@ -147,3 +147,17 @@ pub fn status_empty(status_code: u16) -> LinoResult {
 pub fn raw_response(body: &str, media_type: &str, status_code: u16) -> LinoResult {
     LinoResult::new(status_code, Body::Raw(body.to_string())).with_media_type(media_type)
 }
+
+impl From<LinoValue> for LinoResult {
+    /// A plain value is a `200 OK` carrying it.
+    fn from(value: LinoValue) -> Self {
+        ok(value)
+    }
+}
+
+impl From<()> for LinoResult {
+    /// A handler that returns nothing sends a `204 No Content`.
+    fn from(_: ()) -> Self {
+        no_content()
+    }
+}

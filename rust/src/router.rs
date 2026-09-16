@@ -143,6 +143,27 @@ impl RouteTable {
         }
     }
 
+    /// Remove a method from a path, dropping the path when it keeps none.
+    ///
+    /// Used by [`crate::app::LinoApp::without_description`] to withdraw the
+    /// description routes the constructor registers.
+    pub fn remove(&mut self, method: &str, pattern: &str) {
+        let method = method.to_uppercase();
+        let Some(index) = self
+            .routes
+            .iter()
+            .position(|entry| entry.pattern == pattern)
+        else {
+            return;
+        };
+        self.routes[index]
+            .methods
+            .retain(|(name, _)| *name != method);
+        if self.routes[index].methods.is_empty() {
+            self.routes.remove(index);
+        }
+    }
+
     /// Find the route entry owning a concrete path.
     pub fn find(&self, pathname: &str) -> Option<&RouteEntry> {
         self.match_path(pathname).map(|(entry, _)| entry)
