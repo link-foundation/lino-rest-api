@@ -27,14 +27,24 @@ const REPOSITORY = "link-foundation/lino-objects-codec";
 export const DEFAULT_REF = "8642bfbf907cb0b7125718ee0e0b26dbf13e94ba";
 
 /** Files copied from the upstream Python package, in import order. */
-const MODULES = ["__init__.py", "debug.py", "format.py", "readable.py", "codec.py"];
+const MODULES = [
+  "__init__.py",
+  "debug.py",
+  "format.py",
+  "readable.py",
+  "codec.py",
+];
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const vendorDirectory = join(
   root,
   "python/src/lino_rest_api/vendor/lino_objects_codec",
 );
-const fixturesDirectory = join(root, "python/tests/fixtures");
+/** Where the shared conformance fixtures are copied to, one per language. */
+const fixturesDirectories = [
+  join(root, "python/tests/fixtures"),
+  join(root, "rust/tests/fixtures"),
+];
 const manifestPath = join(vendorDirectory, "VENDORED.md");
 
 /**
@@ -78,11 +88,13 @@ async function collect(ref) {
     );
   }
   // The cross-language fixtures are how the Python copy is proven to produce the
-  // same bytes as the npm package the JavaScript side uses.
-  files.set(
-    join(fixturesDirectory, "readable-format-cases.json"),
-    await download(ref, "fixtures/readable-format/cases.json"),
-  );
+  // same bytes as the npm package the JavaScript side uses, and how the Rust
+  // crate is proven to agree with both. Each package carries its own copy so
+  // that its test suite runs from a published distribution too.
+  const cases = await download(ref, "fixtures/readable-format/cases.json");
+  for (const directory of fixturesDirectories) {
+    files.set(join(directory, "readable-format-cases.json"), cases);
+  }
   return files;
 }
 
@@ -115,7 +127,8 @@ instead of depending on a release.
 Do not edit these files. Run the script to update them, and
 \`node scripts/sync-vendored-codec.mjs --check\` to verify that the copy still
 matches the pinned commit. \`python/tests/test_codec_parity.py\` proves the copy
-encodes the shared fixtures exactly as the npm package does.
+encodes the shared fixtures exactly as the npm package does, and
+\`rust/tests/codec_parity.rs\` proves the crate agrees with both.
 
 | File | SHA-256 |
 | ---- | ------- |

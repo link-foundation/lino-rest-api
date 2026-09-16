@@ -12,7 +12,8 @@ instead of depending on a release.
 Do not edit these files. Run the script to update them, and
 `node scripts/sync-vendored-codec.mjs --check` to verify that the copy still
 matches the pinned commit. `python/tests/test_codec_parity.py` proves the copy
-encodes the shared fixtures exactly as the npm package does.
+encodes the shared fixtures exactly as the npm package does, and
+`rust/tests/codec_parity.rs` proves the crate agrees with both.
 
 | File | SHA-256 |
 | ---- | ------- |
@@ -22,3 +23,4 @@ encodes the shared fixtures exactly as the npm package does.
 | `python/src/lino_rest_api/vendor/lino_objects_codec/readable.py` | `0dc17c527a0dc7b76df2084e99b3fa557cd63b70c696eb53396020e6802fade8` |
 | `python/src/lino_rest_api/vendor/lino_objects_codec/codec.py` | `b5096a77130caf75305eac3d02136a6b74443efe3f3a3f87ba1825c67cf5a569` |
 | `python/tests/fixtures/readable-format-cases.json` | `8fa38242996933e7e87817bd1c44f2f1b3ae133b7fdd9670c7a38d1db6bfb895` |
+| `rust/tests/fixtures/readable-format-cases.json` | `8fa38242996933e7e87817bd1c44f2f1b3ae133b7fdd9670c7a38d1db6bfb895` |
