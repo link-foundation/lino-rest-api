@@ -70,7 +70,7 @@ if (!releaseId || !version || !repository) {
   process.exit(1);
 }
 
-const packageName = "test-anywhere";
+const packageName = "lino-rest-api";
 
 try {
   // Get current release body

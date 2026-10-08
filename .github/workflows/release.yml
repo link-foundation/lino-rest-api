@@ -6,9 +6,7 @@ on:
       - main
   pull_request:
     types: [opened, synchronize, reopened]
-  # Manual release support - consolidated here to work with PyPI trusted publishing
-  # PyPI only allows ONE workflow file as trusted publisher, so all publishing
-  # must go through this workflow (release.yml)
+  # All registries trust this workflow for automatic and manual releases.
   workflow_dispatch:
     inputs:
       release_mode:
@@ -32,7 +30,12 @@ on:
         required: false
         type: string
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   # Changeset check - only runs on PRs
@@ -48,15 +51,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20.x"
+          node-version: "24.x"
 
       - name: Install dependencies
         run: npm install
 
       - name: Check for changesets
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           # Skip changeset check for automated version PRs
-          if [[ "${{ github.head_ref }}" == "changeset-release/"* ]]; then
+          if [[ "$HEAD_REF" == "changeset-release/"* ]]; then
             echo "Skipping changeset check for automated release PR"
             exit 0
           fi
@@ -69,20 +74,23 @@ jobs:
     name: Lint and Format Check
     runs-on: ubuntu-latest
     needs: [changeset-check]
-    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success')
+    if: always() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_mode == 'instant' && github.ref == 'refs/heads/main') || needs.changeset-check.result == 'success')
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20.x"
+          node-version: "24.x"
 
       - name: Install Node dependencies
         run: npm install
 
       - name: Check formatting
         run: npm run format:check
+
+      - name: Test release tooling
+        run: npm run test:release
 
       - name: Check file size limit
         run: npm run check:file-size
@@ -106,7 +114,7 @@ jobs:
     name: Test JavaScript (${{ matrix.runtime }} on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: [changeset-check]
-    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success')
+    if: always() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_mode == 'instant' && github.ref == 'refs/heads/main') || needs.changeset-check.result == 'success')
     strategy:
       fail-fast: false
       matrix:
@@ -151,7 +159,7 @@ jobs:
     name: Test Python (${{ matrix.python-version }} on ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: [changeset-check]
-    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success')
+    if: always() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_mode == 'instant' && github.ref == 'refs/heads/main') || needs.changeset-check.result == 'success')
     strategy:
       fail-fast: false
       matrix:
@@ -180,11 +188,18 @@ jobs:
       - name: Run linting (ruff)
         run: ruff check src/
 
+      - name: Build and validate Python distributions
+        run: |
+          python -m pip install build twine
+          python -m build
+          python -m twine check dist/*
+          python ../experiments/check-python-distributions.py
+
   test-rust:
     name: Test Rust (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     needs: [changeset-check]
-    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success')
+    if: always() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_mode == 'instant' && github.ref == 'refs/heads/main') || needs.changeset-check.result == 'success')
     strategy:
       fail-fast: false
       matrix:
@@ -218,205 +233,224 @@ jobs:
       - name: Check the package
         run: cargo package --allow-dirty
 
-  # Release - only runs on main after tests pass (for push events)
+  # Version once after validation, then publish each registry independently.
   release:
-    name: Release
+    name: Prepare release
     needs: [lint, test-js, test-python, test-rust]
-    # Use always() to ensure this job runs even if changeset-check was skipped
-    # This is needed because lint/test jobs have a transitive dependency on changeset-check
-    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.lint.result == 'success' && needs.test-js.result == 'success' && needs.test-python.result == 'success' && needs.test-rust.result == 'success'
+    if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_mode == 'instant')) && needs.lint.result == 'success' && needs.test-js.result == 'success' && needs.test-python.result == 'success' && needs.test-rust.result == 'success'
     runs-on: ubuntu-latest
-    # Permissions required for PyPI OIDC trusted publishing
     permissions:
       contents: write
-      pull-requests: write
-      id-token: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha: ${{ steps.version.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20.x"
-
-      - name: Install Node dependencies
-        run: npm install
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install Python build tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install build twine
-
-      - name: Check for changesets
-        id: check_changesets
-        run: |
-          # Count changeset files (excluding README.md and config.json)
-          CHANGESET_COUNT=$(find .changeset -name "*.md" ! -name "README.md" | wc -l)
-          echo "Found $CHANGESET_COUNT changeset file(s)"
-          echo "has_changesets=$([[ $CHANGESET_COUNT -gt 0 ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          node-version: "24.x"
 
       - name: Version packages and commit to main
-        if: steps.check_changesets.outputs.has_changesets == 'true'
         id: version
+        env:
+          RELEASE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.release_mode || 'changeset' }}
+          BUMP_TYPE: ${{ inputs.bump_type }}
+          DESCRIPTION: ${{ inputs.description }}
+          SOURCE_SHA: ${{ github.sha }}
         run: |
-          # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Update Python version using changesets
-          node scripts/update-python-version.mjs
-
-          # Check if there are changes to commit
-          if [[ -n $(git status --porcelain) ]]; then
-            NEW_VERSION=$(grep -Po 'version = "\K[^"]+' python/pyproject.toml)
-            echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-
-            # Commit changes
-            git add -A
-            git commit -m "$NEW_VERSION"
-            git push origin main
-
-            echo "version_committed=true" >> $GITHUB_OUTPUT
-            echo "✅ Version bump committed and pushed to main"
+          # Reuse this run's release commit on a rerun, including instant releases.
+          RELEASE_COMMIT=$(git log --format=%H --grep="^Release-Run: $GITHUB_RUN_ID$" -1)
+          if [[ -n "$RELEASE_COMMIT" ]]; then
+            git checkout "$RELEASE_COMMIT"
           else
-            echo "version_committed=false" >> $GITHUB_OUTPUT
-            echo "No changes to commit"
+            if [[ $(git rev-parse HEAD) != "$SOURCE_SHA" ]]; then
+              echo "main advanced after validation; its newer workflow run must prepare the release"
+              exit 1
+            fi
+            if [[ "$RELEASE_MODE" == "instant" ]]; then
+              node scripts/instant-version-bump.mjs --bump-type "$BUMP_TYPE" --description "$DESCRIPTION"
+            else
+              # No changesets means keep the current version and retry missing registries.
+              BUMP_TYPE= node scripts/version-packages.mjs
+            fi
+            NEW_VERSION=$(node scripts/package-version.mjs)
+            if [[ -n $(git status --porcelain) ]]; then
+              git add .changeset js/package.json js/package-lock.json js/CHANGELOG.md rust/Cargo.toml rust/Cargo.lock rust/CHANGELOG.md python/pyproject.toml python/CHANGELOG.md
+              git commit -m "$NEW_VERSION" -m "Release-Run: $GITHUB_RUN_ID"
+              git push origin HEAD:main
+            fi
           fi
+          NEW_VERSION=$(node scripts/package-version.mjs)
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Publish to PyPI
-        # Run if version was committed OR if a previous attempt already committed (for re-runs)
-        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
-        id: publish
-        run: node scripts/publish-to-pypi.mjs --should-pull
-
-      - name: Create GitHub Release
-        if: steps.publish.outputs.published == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/create-github-release-python.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
-
-      - name: Format GitHub release notes
-        if: steps.publish.outputs.published == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
-
-  # Manual Instant Release - triggered via workflow_dispatch with instant mode
-  # This job is in release.yml because PyPI trusted publishing
-  # only allows one workflow file to be registered as a trusted publisher
-  instant-release:
-    name: Instant Release
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant'
+  publish-npm:
+    name: Publish to npm
+    needs: [release]
+    if: always() && needs.release.result == 'success'
     runs-on: ubuntu-latest
-    # Permissions required for PyPI OIDC trusted publishing
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ needs.release.outputs.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11
+
+      - name: Check already published version
+        id: registry
+        run: node scripts/check-registry.mjs --registry npm
+
+      - name: Install package dependencies
+        if: steps.registry.outputs.published == 'false'
+        run: npm ci
+        working-directory: js
+
+      - name: Publish to npm with provenance
+        if: steps.registry.outputs.published == 'false'
+        run: npm publish --provenance --access public
+        working-directory: js
+
+  publish-crates:
+    name: Publish to crates.io
+    needs: [release]
+    if: always() && needs.release.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+
+      - name: Check already published version
+        id: registry
+        run: node scripts/check-registry.mjs --registry crates-io
+
+      - name: Setup Rust
+        if: steps.registry.outputs.published == 'false'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache the build
+        if: steps.registry.outputs.published == 'false'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Authenticate with crates.io
+        if: steps.registry.outputs.published == 'false'
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish to crates.io
+        if: steps.registry.outputs.published == 'false'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish --locked
+        working-directory: rust
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [release]
+    if: always() && needs.release.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+
+      - name: Check already published version
+        id: registry
+        run: node scripts/check-registry.mjs --registry pypi
+
+      - name: Setup Python
+        if: steps.registry.outputs.published == 'false'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build and check distributions
+        if: steps.registry.outputs.published == 'false'
+        run: |
+          python -m pip install build twine
+          python -m build python
+          python -m twine check python/dist/*
+
+      - name: Publish to PyPI using trusted publishing
+        if: steps.registry.outputs.published == 'false'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist/
+          skip-existing: true
+
+  github-release:
+    name: Create GitHub Release
+    needs: [release, publish-npm, publish-crates, publish-pypi]
+    if: always() && needs.release.result == 'success' && needs.publish-npm.result == 'success' && needs.publish-crates.result == 'success' && needs.publish-pypi.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.sha }}
           fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20.x"
-
-      - name: Install Node dependencies
-        run: npm install
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install Python build tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install build twine
-
-      - name: Version packages and commit to main
-        id: version
-        run: |
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Get current version
-          CURRENT_VERSION=$(grep -Po 'version = "\K[^"]+' python/pyproject.toml)
-          echo "Current version: $CURRENT_VERSION"
-
-          # Calculate new version based on bump type
-          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
-          MAJOR="${VERSION_PARTS[0]}"
-          MINOR="${VERSION_PARTS[1]}"
-          PATCH="${VERSION_PARTS[2]}"
-
-          case "${{ github.event.inputs.bump_type }}" in
-            major)
-              NEW_VERSION="$((MAJOR + 1)).0.0"
-              ;;
-            minor)
-              NEW_VERSION="${MAJOR}.$((MINOR + 1)).0"
-              ;;
-            patch)
-              NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
-              ;;
-          esac
-
-          echo "New version: $NEW_VERSION"
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-
-          # Update pyproject.toml
-          sed -i "s/version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" python/pyproject.toml
-
-          # Update CHANGELOG.md
-          TODAY=$(date +%Y-%m-%d)
-          DESCRIPTION="${{ github.event.inputs.description }}"
-          if [[ -z "$DESCRIPTION" ]]; then
-            DESCRIPTION="Manual ${{ github.event.inputs.bump_type }} release"
-          fi
-
-          # Insert new entry after ## [Unreleased]
-          sed -i "/## \[Unreleased\]/a\\\\n## [$NEW_VERSION] - $TODAY\\n\\n- $DESCRIPTION\\n" python/CHANGELOG.md
-
-          # Commit and push
-          git add -A
-          git commit -m "$NEW_VERSION"
-          git push origin main
-
-          echo "version_committed=true" >> $GITHUB_OUTPUT
-
-      - name: Publish to PyPI
-        # Run if version was committed OR if a previous attempt already committed (for re-runs)
-        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
-        id: publish
-        run: node scripts/publish-to-pypi.mjs
+          node-version: "24.x"
 
       - name: Create GitHub Release
-        if: steps.publish.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/create-github-release-python.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
+          RELEASE_VERSION: ${{ needs.release.outputs.version }}
+          RELEASE_SHA: ${{ needs.release.outputs.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: node scripts/create-github-release-python.mjs
 
       - name: Format GitHub release notes
-        if: steps.publish.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
+          RELEASE_VERSION: ${{ needs.release.outputs.version }}
+          RELEASE_SHA: ${{ needs.release.outputs.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: node scripts/format-github-release.mjs --release-version "$RELEASE_VERSION" --repository "$REPOSITORY" --commit-sha "$RELEASE_SHA"
 
   # Manual Changeset PR - creates a pull request with the changeset for review
   changeset-pr:
     name: Create Changeset PR
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
+    if: github.event_name == 'workflow_dispatch' && inputs.release_mode == 'changeset-pr' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -429,13 +463,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20.x"
+          node-version: "24.x"
 
       - name: Install dependencies
         run: npm install
 
       - name: Create changeset file
-        run: node scripts/create-manual-changeset.mjs --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+        env:
+          BUMP_TYPE: ${{ inputs.bump_type }}
+          DESCRIPTION: ${{ inputs.description }}
+        run: node scripts/create-manual-changeset.mjs
 
       - name: Format changeset with Prettier
         run: |
@@ -465,5 +502,5 @@ jobs:
             ### Next Steps
             1. Review the changeset in this PR
             2. Merge this PR to main
-            3. The automated release workflow will create a version PR
-            4. Merge the version PR to publish to PyPI and create a GitHub release
+            3. The release workflow versions all three packages together
+            4. npm, crates.io and PyPI publish through trusted publishing
