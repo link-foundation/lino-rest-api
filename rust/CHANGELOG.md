@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-08
+
+- Release JavaScript, Rust and Python together using trusted publishing, validate single-line versions, resume partial releases with uncached registry checks, and include the Python package license.
+
 ## [0.2.0] - 2026-09-16
 
 ### Added
