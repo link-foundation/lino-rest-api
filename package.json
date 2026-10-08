@@ -17,7 +17,8 @@
     "changeset:version": "node scripts/changeset-version.mjs",
     "changeset:publish": "changeset publish",
     "changeset:status": "changeset status --since=origin/main",
-    "prepare": "husky || true"
+    "prepare": "husky || true",
+    "test:release": "node --test experiments/release*.test.mjs"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -29,6 +30,7 @@
     "eslint-plugin-prettier": "^5.5.6",
     "husky": "^9.1.7",
     "marked": "^18.0.13",
-    "prettier": "^3.9.6"
+    "prettier": "^3.9.6",
+    "yaml": "^2.9.1"
   }
 }

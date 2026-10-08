@@ -114,6 +114,8 @@ npm run lint:python              # ruff
 
 Every change needs exactly one changeset (`npm run changeset`); the release workflow versions and publishes from it.
 
+See [Releasing](docs/releasing.md) for coordinated versions, trusted publisher setup and release checks.
+
 ## Related projects
 
 - [links-notation](https://github.com/link-foundation/links-notation) — the notation, its parser and its writer
