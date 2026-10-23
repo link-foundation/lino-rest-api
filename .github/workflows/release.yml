@@ -363,11 +363,13 @@ jobs:
         if: steps.registry.outputs.published == 'false'
         id: auth
         uses: rust-lang/crates-io-auth-action@v1
+        # Trusted publishing first; the publish step falls back to the token secret.
+        continue-on-error: true
 
       - name: Publish to crates.io
         if: steps.registry.outputs.published == 'false'
         env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token || secrets.CARGO_REGISTRY_TOKEN || secrets.CARGO_TOKEN }}
         run: cargo publish --locked
         working-directory: rust
 

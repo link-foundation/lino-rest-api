@@ -45,7 +45,12 @@ jobs grant `id-token: write` and use:
   `cargo publish --locked` from `rust/`.
 - `pypa/gh-action-pypi-publish@release/v1` for `python/dist/`.
 
-No registry token secrets are required. GitHub Pages already uses GitHub
+Trusted publishing is always tried first. For crates.io, the authentication
+step continues on error, and `cargo publish` uses the OIDC token when it is
+available, otherwise the `CARGO_REGISTRY_TOKEN` secret, otherwise the
+`CARGO_TOKEN` secret. The secrets are only a fallback for a missing or
+mismatched trusted publisher or an OIDC outage; with trusted publishing
+configured, no registry token secrets are required. GitHub Pages already uses GitHub
 Actions as its source; no Pages setting change is needed for this issue.
 
 After this workflow is merged, use
