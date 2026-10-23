@@ -278,11 +278,14 @@ test("all publishing jobs use the prepared commit and require successful validat
       (step) => step.run === "npm install --global npm@11",
     ),
   );
+  const crateSteps = workflow.jobs["publish-crates"].steps;
+  const auth = crateSteps.find((step) => step.id === "auth");
+  assert.equal(auth.uses, "rust-lang/crates-io-auth-action@v1");
+  assert.equal(auth["continue-on-error"], true);
   assert.equal(
-    workflow.jobs["publish-crates"].steps.find((step) =>
-      step.run?.includes("cargo publish"),
-    ).env.CARGO_REGISTRY_TOKEN,
-    "${{ steps.auth.outputs.token }}",
+    crateSteps.find((step) => step.run?.includes("cargo publish")).env
+      .CARGO_REGISTRY_TOKEN,
+    "${{ steps.auth.outputs.token || secrets.CARGO_REGISTRY_TOKEN || secrets.CARGO_TOKEN }}",
   );
 });
 
