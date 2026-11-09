@@ -43,17 +43,22 @@ is the LINO representation of
 
 ## 2. Media types
 
-| Media type          | Meaning                                                                                                 |
-| ------------------- | ------------------------------------------------------------------------------------------------------- |
-| `text/lino`         | Readable, indented Links Notation. **The default** representation.                                      |
-| `text/lino-line`    | Readable Links Notation restricted to a single line per value. Used for append-only logs and streaming. |
-| `text/lino-compact` | Type-tagged, base64 Links Notation. Preserves object identity and circular references.                  |
-| `application/json`  | Optional JSON fallback for clients that cannot speak LINO.                                              |
+| Media type                | Meaning                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `text/lino`               | Readable, indented Links Notation. **The default** representation.                                      |
+| `text/lino-line`          | Readable Links Notation restricted to a single line per value. Used for append-only logs and streaming. |
+| `text/lino-compact`       | Type-tagged, base64 Links Notation. Preserves object identity and circular references.                  |
+| `application/lino-binary` | Binary v1 Links Notation packet containing the typed compact object AST.                                |
+| `application/json`        | Optional JSON fallback for clients that cannot speak LINO.                                              |
 
 A server MUST accept `text/lino` on request bodies and MUST produce `text/lino` by
-default. A server MUST include `charset=utf-8` when it emits a LINO media type.
+default. A server MUST include `charset=utf-8` when it emits a text LINO media type.
+Binary packets MUST NOT carry a charset. Binary uses the compact typed AST
+without canonicalizing unary containers; the decoded AST is formatted before
+object decoding. It MUST enforce finite link, reference, expanded-node, expanded
+string-byte and depth budgets in addition to request-byte limits.
 
-`text/lino-compact` is the only form that can carry shared object identity and
+`text/lino-compact` and `application/lino-binary` are the forms that can carry shared object identity and
 cycles. `text/lino` and `text/lino-line` are plain trees; an encoder MUST fail with
 `422 Unprocessable Content` when asked to write a cyclic value in those forms.
 
@@ -63,7 +68,10 @@ cycles. `text/lino` and `text/lino-line` are plain trees; an encoder MUST fail w
   MUST produce `415 Unsupported Media Type`.
 - A response representation is selected from the `Accept` header using standard
   quality values (RFC 9110 §12.5.1). When no listed type is supported the server
-  MUST respond `406 Not Acceptable`.
+  MUST respond `406 Not Acceptable`. Each representation takes the quality of its
+  most specific matching range, including zero. Highest positive quality wins;
+  server preference breaks ties. Disabled representations MUST also be refused
+  on request bodies with 415, so JSON can be disabled independently of binary.
 - A missing or `*/*` `Accept` header selects `text/lino`.
 - Every response with a body MUST carry `Vary: Accept`.
 
@@ -249,6 +257,7 @@ A server SHOULD expose a machine-readable description of its routes at
     "text/lino-line"
     "text/lino-compact"
     "application/json"
+    "application/lino-binary"
   )
   routes (
     (

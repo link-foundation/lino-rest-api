@@ -31,10 +31,12 @@ export {
   encodeFor,
   decodeFrom,
   CircularReferenceError,
+  BINARY_DECODE_LIMITS,
 } from "./codec.js";
 
 export {
   LINO_CONTENT_TYPE,
+  LINO_BINARY_CONTENT_TYPE,
   LINO_LINE_CONTENT_TYPE,
   LINO_COMPACT_CONTENT_TYPE,
   LINO_PROBLEM_CONTENT_TYPE,

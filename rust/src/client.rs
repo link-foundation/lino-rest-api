@@ -5,7 +5,7 @@
 
 use lino_objects_codec::LinoValue;
 
-use crate::codec::{decode_from, encode_for};
+use crate::codec::{decode_from, encode_for_bytes};
 use crate::headers::Headers;
 use crate::media_type::{
     LINO_CONTENT_TYPE, is_decodable_media_type, parse_content_type, with_charset,
@@ -106,6 +106,8 @@ pub struct LinoResponse {
     pub data: Option<LinoValue>,
     /// The body as it arrived, for representations this client cannot decode.
     pub text: String,
+    /// Original response bytes, including binary representations.
+    pub bytes: Vec<u8>,
     /// The `ETag` of the representation, when it carries one.
     pub etag: Option<String>,
     /// The `Location` of a created resource, when the response carries one.
@@ -295,7 +297,7 @@ impl LinoClient {
             .map_err(|error| LinoClientError::Encoding(error.to_string()))?;
         let mut builder = self.http.request(http_method, url);
         if let Some(value) = body {
-            let encoded = encode_for(value, &self.content_type)
+            let encoded = encode_for_bytes(value, &self.content_type)
                 .map_err(|error| LinoClientError::Encoding(error.to_string()))?;
             request_headers.insert("Content-Type", with_charset(&self.content_type));
             builder = builder.body(encoded);
@@ -310,8 +312,26 @@ impl LinoClient {
         for (name, value) in response.headers() {
             headers.insert(name.as_str(), value.to_str().unwrap_or_default());
         }
-        let text = response.text().await?;
-        let data = decode_response(status, &method_name, &headers, &text);
+        let raw_headers = response.headers().clone();
+        let body = response.bytes().await?;
+        let binary = parse_content_type(headers.get("content-type"))
+            == crate::media_type::LINO_BINARY_CONTENT_TYPE;
+        let text = if binary {
+            String::from_utf8_lossy(&body).into_owned()
+        } else {
+            // Keep reqwest's existing charset/BOM handling for text while
+            // retaining the original bytes for binary-aware callers.
+            let mut text_response = axum::http::Response::new(body.clone());
+            *text_response.headers_mut() = raw_headers;
+            reqwest::Response::from(text_response).text().await?
+        };
+        let bytes = body.to_vec();
+        let data = decode_response(
+            status,
+            &method_name,
+            &headers,
+            if binary { &bytes } else { text.as_bytes() },
+        );
 
         if status >= 400 {
             return Err(LinoClientError::of_status(status, data));
@@ -323,6 +343,7 @@ impl LinoClient {
             headers,
             data,
             text,
+            bytes,
         })
     }
 
@@ -422,8 +443,9 @@ pub fn decode_response(
     status: u16,
     method: &str,
     headers: &Headers,
-    text: &str,
+    text: impl AsRef<[u8]>,
 ) -> Option<LinoValue> {
+    let text = text.as_ref();
     if status == 204 || status == 304 || method == "HEAD" || text.is_empty() {
         return None;
     }

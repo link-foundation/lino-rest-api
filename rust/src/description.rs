@@ -52,7 +52,10 @@ impl ServiceInfo {
 }
 
 /// The schema every Links Notation body is declared with.
-fn lino_schema() -> LinoValue {
+fn lino_schema(media_type: &str) -> LinoValue {
+    if media_type == crate::media_type::LINO_BINARY_CONTENT_TYPE {
+        return crate::value::with(&lino_schema("text/lino"), "format", string("binary"));
+    }
     object([
         (
             "description",
@@ -172,7 +175,12 @@ pub fn openapi_document(
     let content = LinoValue::Object(
         types
             .iter()
-            .map(|media_type| (media_type.clone(), object([("schema", lino_schema())])))
+            .map(|media_type| {
+                (
+                    media_type.clone(),
+                    object([("schema", lino_schema(media_type))]),
+                )
+            })
             .collect(),
     );
 

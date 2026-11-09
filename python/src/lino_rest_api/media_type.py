@@ -2,9 +2,8 @@
 Media types and content negotiation (specification section 2).
 
 Negotiation follows RFC 9110 section 12.5.1: the ``Accept`` header is parsed into
-ranges with quality values, the ranges are ordered by quality and then by
-specificity, and the first range that matches a representation the server can
-produce wins.
+ranges with quality values. Each representation takes the quality of its most
+specific matching range; highest positive quality wins, then server preference.
 """
 
 from dataclasses import dataclass
@@ -17,6 +16,9 @@ LINO_LINE_CONTENT_TYPE = "text/lino-line"
 
 #: Type-tagged, base64 Links Notation that preserves object identity.
 LINO_COMPACT_CONTENT_TYPE = "text/lino-compact"
+
+#: Binary Links Notation carrying the typed compact object AST.
+LINO_BINARY_CONTENT_TYPE = "application/lino-binary"
 
 #: JSON fallback for clients that cannot speak Links Notation.
 JSON_CONTENT_TYPE = "application/json"
@@ -45,6 +47,7 @@ SUPPORTED_MEDIA_TYPES = [
     LINO_LINE_CONTENT_TYPE,
     LINO_COMPACT_CONTENT_TYPE,
     JSON_CONTENT_TYPE,
+    LINO_BINARY_CONTENT_TYPE,
 ]
 
 
@@ -67,7 +70,7 @@ def with_charset(media_type: str) -> str:
     Returns:
         Media type with an explicit charset
     """
-    return f"{media_type}; charset=utf-8"
+    return media_type if media_type == LINO_BINARY_CONTENT_TYPE else f"{media_type}; charset=utf-8"
 
 
 def parse_content_type(header_value: str | None) -> str:
@@ -160,13 +163,16 @@ def negotiate_media_type(
         Selected media type, or None when none is acceptable
     """
     candidates = SUPPORTED_MEDIA_TYPES if supported is None else supported
-    for accepted in parse_accept(accept_header):
-        if accepted.quality <= 0:
-            continue
-        for media_type in candidates:
-            if _range_matches(accepted.type, media_type):
-                return media_type
-    return None
+    ranges = parse_accept(accept_header)
+    selected = None
+    best_quality = 0.0
+    for media_type in candidates:
+        matches = [r for r in ranges if _range_matches(r.type, media_type)]
+        effective = max(matches, key=lambda r: r.specificity, default=None)
+        if effective is not None and effective.quality > best_quality:
+            selected = media_type
+            best_quality = effective.quality
+    return selected
 
 
 def normalize_media_type(media_type: str) -> str:

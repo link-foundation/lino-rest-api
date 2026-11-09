@@ -1,9 +1,8 @@
 //! Media types and content negotiation (specification section 2).
 //!
 //! Negotiation follows RFC 9110 section 12.5.1: the `Accept` header is parsed
-//! into ranges with quality values, the ranges are ordered by quality and then
-//! by specificity, and the first range that matches a representation the server
-//! can produce wins.
+//! into ranges with quality values. Each representation takes the quality of its
+//! most specific matching range; highest positive quality wins, then server order.
 
 /// Readable, indented Links Notation. The default representation.
 pub const LINO_CONTENT_TYPE: &str = "text/lino";
@@ -13,6 +12,9 @@ pub const LINO_LINE_CONTENT_TYPE: &str = "text/lino-line";
 
 /// Type-tagged, base64 Links Notation that preserves object identity.
 pub const LINO_COMPACT_CONTENT_TYPE: &str = "text/lino-compact";
+
+/// Binary Links Notation carrying the typed compact object AST.
+pub const LINO_BINARY_CONTENT_TYPE: &str = "application/lino-binary";
 
 /// JSON fallback for clients that cannot speak Links Notation.
 pub const JSON_CONTENT_TYPE: &str = "application/json";
@@ -24,11 +26,12 @@ pub const LINO_PROBLEM_CONTENT_TYPE: &str = "application/problem+lino";
 pub const JSON_PROBLEM_CONTENT_TYPE: &str = "application/problem+json";
 
 /// Every representation a server produces, most preferred first.
-pub const SUPPORTED_MEDIA_TYPES: [&str; 4] = [
+pub const SUPPORTED_MEDIA_TYPES: [&str; 5] = [
     LINO_CONTENT_TYPE,
     LINO_LINE_CONTENT_TYPE,
     LINO_COMPACT_CONTENT_TYPE,
     JSON_CONTENT_TYPE,
+    LINO_BINARY_CONTENT_TYPE,
 ];
 
 /// One range of an `Accept` header.
@@ -44,7 +47,11 @@ pub struct AcceptRange {
 
 /// Add `charset=utf-8` to a media type so that bytes are unambiguous.
 pub fn with_charset(media_type: &str) -> String {
-    format!("{media_type}; charset=utf-8")
+    if media_type == LINO_BINARY_CONTENT_TYPE {
+        media_type.to_string()
+    } else {
+        format!("{media_type}; charset=utf-8")
+    }
 }
 
 /// Strip parameters and normalise case, turning a header value into a media type.
@@ -138,17 +145,26 @@ fn range_matches(range_type: &str, media_type: &str) -> bool {
 /// Returns `None` when nothing the server can produce is acceptable, which the
 /// caller answers with `406 Not Acceptable`.
 pub fn negotiate_media_type(accept_header: Option<&str>, supported: &[String]) -> Option<String> {
-    for accepted in parse_accept(accept_header) {
-        if accepted.quality <= 0.0 {
-            continue;
+    let ranges = parse_accept(accept_header);
+    let mut selected = None;
+    let mut best_quality = 0.0;
+    for media_type in supported {
+        let mut effective: Option<&AcceptRange> = None;
+        for range in &ranges {
+            if range_matches(&range.media_type, media_type)
+                && effective.is_none_or(|current| range.specificity > current.specificity)
+            {
+                effective = Some(range);
+            }
         }
-        for media_type in supported {
-            if range_matches(&accepted.media_type, media_type) {
-                return Some(media_type.clone());
+        if let Some(range) = effective {
+            if range.quality > best_quality {
+                best_quality = range.quality;
+                selected = Some(media_type.clone());
             }
         }
     }
-    None
+    selected
 }
 
 /// Every representation a server produces, as owned strings.

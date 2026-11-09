@@ -9,7 +9,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::Router;
-use axum::body::{Body, Bytes};
+use axum::body::{Body, to_bytes};
 use axum::extract::State;
 use axum::http::{HeaderName, HeaderValue, Method, Response, StatusCode, Uri};
 use tokio::net::TcpListener;
@@ -31,7 +31,7 @@ async fn dispatch(
     method: Method,
     uri: Uri,
     headers: axum::http::HeaderMap,
-    body: Bytes,
+    body: Body,
 ) -> Response<Body> {
     let mut raw = RawRequest::new(method.as_str(), uri.path());
     raw.query_string = uri.query().unwrap_or_default().to_string();
@@ -39,9 +39,23 @@ async fn dispatch(
         raw.headers
             .insert(name.as_str(), value.to_str().unwrap_or_default());
     }
-    raw.body = body.to_vec();
+    let parts = match to_bytes(body, app.max_body_bytes).await {
+        Ok(bytes) => {
+            raw.body = bytes.to_vec();
+            app.respond(raw).await
+        }
+        Err(_) => {
+            let media_type =
+                crate::middleware::negotiate_request(&raw.headers, app.supported.as_deref())
+                    .unwrap_or_else(|_| crate::media_type::LINO_CONTENT_TYPE.to_string());
+            crate::middleware::build_problem_response(
+                &crate::problem::LinoHttpError::new(413, Some("Request body too large")),
+                &media_type,
+                Some(uri.path()),
+            )
+        }
+    };
 
-    let parts = app.respond(raw).await;
     let status = StatusCode::from_u16(parts.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
     let mut response = Response::builder().status(status);
     for (name, value) in parts.headers.iter() {
@@ -55,7 +69,11 @@ async fn dispatch(
         }
     }
     response
-        .body(Body::from(parts.body))
+        .body(if method == Method::HEAD {
+            Body::empty()
+        } else {
+            Body::from(parts.body_bytes().to_vec())
+        })
         .unwrap_or_else(|_| Response::new(Body::empty()))
 }
 

@@ -10,7 +10,7 @@ working against a Links Notation API.
 import re
 from typing import Any
 
-from .media_type import SUPPORTED_MEDIA_TYPES
+from .media_type import LINO_BINARY_CONTENT_TYPE, SUPPORTED_MEDIA_TYPES
 
 #: Version of the description document this package emits.
 LINO_API_DESCRIPTION_VERSION = "1.0"
@@ -112,7 +112,11 @@ def openapi_document(
         OpenAPI 3.1 document
     """
     types = SUPPORTED_MEDIA_TYPES if media_types is None else media_types
-    content = {media_type: {"schema": LINO_SCHEMA} for media_type in types}
+    content = {
+        media_type: {"schema": {**LINO_SCHEMA, "format": "binary"}
+                     if media_type == LINO_BINARY_CONTENT_TYPE else LINO_SCHEMA}
+        for media_type in types
+    }
 
     paths: dict[str, Any] = {}
     for route in routes:

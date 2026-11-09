@@ -9,6 +9,7 @@ import { decodeFrom, encodeFor } from "./codec.js";
 import {
   JSON_CONTENT_TYPE,
   LINO_CONTENT_TYPE,
+  LINO_BINARY_CONTENT_TYPE,
   isDecodableMediaType,
   parseContentType,
   withCharset,
@@ -160,12 +161,16 @@ export class LinoClient {
       return undefined;
     }
 
+    const mediaType = parseContentType(response.headers.get("content-type"));
+    if (mediaType === LINO_BINARY_CONTENT_TYPE) {
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      return bytes.length ? decodeFrom(bytes, mediaType) : undefined;
+    }
     const text = await response.text();
     if (text === "") {
       return undefined;
     }
 
-    const mediaType = parseContentType(response.headers.get("content-type"));
     if (!isDecodableMediaType(mediaType)) {
       return text;
     }

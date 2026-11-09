@@ -99,7 +99,7 @@ pub struct LinoApp {
     pub info: ServiceInfo,
     /// CORS policy, when cross-origin requests are allowed.
     pub cors: Option<CorsPolicy>,
-    /// Representations the server may produce; [`None`] means all of them.
+    /// Representations the server may accept and produce; [`None`] means all of them.
     pub supported: Option<Vec<String>>,
     /// Largest accepted request body.
     pub max_body_bytes: usize,
@@ -516,6 +516,7 @@ impl LinoApp {
         }
         if method == "HEAD" {
             parts.body = String::new();
+            parts.binary_body = None;
         }
         parts
     }
@@ -533,6 +534,19 @@ impl LinoApp {
         media_type: &mut String,
     ) -> Result<ResponseParts, LinoHttpError> {
         *media_type = negotiate_request(&raw.headers, self.supported.as_deref())?;
+        let request_type = crate::media_type::parse_content_type(raw.headers.get("content-type"));
+        if let Some(supported) = &self.supported {
+            if !request_type.is_empty()
+                && !supported.iter().any(|candidate| {
+                    candidate == crate::media_type::normalize_media_type(&request_type)
+                })
+            {
+                return Err(LinoHttpError::new(
+                    415,
+                    Some("Request media type is disabled"),
+                ));
+            }
+        }
         let decoded = decode_request_body(
             &raw.body,
             raw.headers.get("content-type"),

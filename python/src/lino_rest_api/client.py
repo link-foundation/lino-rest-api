@@ -14,6 +14,7 @@ import httpx
 from .codec import decode_from, encode_for
 from .media_type import (
     JSON_CONTENT_TYPE,
+    LINO_BINARY_CONTENT_TYPE,
     LINO_CONTENT_TYPE,
     is_decodable_media_type,
     parse_content_type,
@@ -137,7 +138,7 @@ class _RequestBuilder:
         accept: str | None = None,
         if_match: str | None = None,
         if_none_match: str | None = None,
-    ) -> tuple[str, dict[str, str], str | None]:
+    ) -> tuple[str, dict[str, str], str | bytes | None]:
         """
         Build the URL, headers and encoded body of a request.
 
@@ -214,6 +215,9 @@ def decode_response(response: httpx.Response, method: str) -> Any:
     if response.status_code in (204, 304) or method == "HEAD":
         return None
 
+    media_type = parse_content_type(response.headers.get("content-type"))
+    if media_type == LINO_BINARY_CONTENT_TYPE:
+        return decode_from(response.content, media_type) if response.content else None
     text = response.text
     if text == "":
         return None

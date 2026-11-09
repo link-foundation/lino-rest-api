@@ -87,3 +87,10 @@ def test_with_charset_appends_utf_8():
 
 def test_an_unknown_media_type_is_not_decodable():
     assert not is_decodable_media_type("application/xml")
+
+def test_specific_ranges_override_wildcards_and_ties_use_server_order():
+    assert negotiate_media_type('text/lino;q=0, */*;q=1', ['text/lino']) == None
+    assert negotiate_media_type('text/*;q=0, */*;q=1', ['text/lino']) == None
+    assert negotiate_media_type('text/lino;q=0.4, text/*;q=0, */*;q=0', ['text/lino']) == 'text/lino'
+    assert negotiate_media_type('text/lino;q=0.2, application/json;q=0.8, */*;q=1', ['text/lino', 'application/json']) == 'application/json'
+    assert negotiate_media_type('application/json;q=0.5, text/lino;q=0.5', ['text/lino', 'application/json']) == 'text/lino'

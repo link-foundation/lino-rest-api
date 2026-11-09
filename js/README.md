@@ -173,3 +173,34 @@ bun test          # the same suites under Bun
 ## License
 
 Unlicense
+
+## Binary transport
+
+`application/lino-binary` carries the typed compact object AST in a
+[Links Notation binary v1 packet](https://github.com/link-foundation/links-notation/blob/main/docs/protocol/binary-links-notation.md).
+Use the exported `LINO_BINARY_CONTENT_TYPE` constant for both Accept and request
+Content-Type. Binary bodies are bytes and have no charset parameter. Text remains
+the default. JSON is independent: configure the server's supported types to
+`text/lino` and `application/lino-binary` to reject JSON requests (415) and JSON
+responses (406). The explicit OpenAPI JSON description route remains available.
+
+Binary encoding and decoding enforce finite budgets: 65,536 links, 262,144
+references, 65,536 expanded AST nodes, 1 MiB of expanded UTF-8 strings, and depth 64. Request bodies additionally obey `maxBodyBytes` / `max_body_bytes` (1 MiB by
+default), enforced while reading. Malformed or over-budget packets receive 400;
+oversized request bodies receive 413. ETags hash exact representation bytes.
+Accept quality is determined by each candidate's most specific matching range,
+including zero; equal qualities use the server's supported-type order.
+
+```javascript
+const app = createLinoApp({
+  supported: [LINO_CONTENT_TYPE, LINO_BINARY_CONTENT_TYPE],
+});
+const client = new LinoClient("http://localhost:8000", {
+  accept: LINO_BINARY_CONTENT_TYPE,
+  contentType: LINO_BINARY_CONTENT_TYPE,
+});
+```
+
+`encodeFor` returns a `Uint8Array` for binary and a string for text. `decodeFrom`
+accepts the corresponding byte or string body. The fetch client reads binary
+responses with `arrayBuffer()` according to response Content-Type.

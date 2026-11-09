@@ -7,6 +7,7 @@ applications that want Links Notation instead of JSON without adopting
 ``lino_rest_api.middleware`` keeps working.
 """
 
+import inspect
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
@@ -15,8 +16,15 @@ from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 from fastapi.routing import APIRoute
 
-from .codec import decode, encode
-from .media_type import LINO_CONTENT_TYPE
+from .codec import encode_for
+from .media_type import LINO_CONTENT_TYPE, is_decodable_media_type, parse_content_type
+from .middleware import (
+    DEFAULT_MAX_BODY_BYTES,
+    build_problem_response,
+    decode_request_body,
+    negotiate_request,
+)
+from .problem import LinoHttpError
 
 
 class LinoRequest:
@@ -24,7 +32,8 @@ class LinoRequest:
     Wrapper for parsing LINO-formatted request bodies.
     """
 
-    def __init__(self, request: Request):
+    def __init__(self, request: Request, *, max_bytes: int = DEFAULT_MAX_BODY_BYTES,
+                 supported: list[str] | None = None):
         """
         Initialize LinoRequest with a FastAPI request.
 
@@ -32,6 +41,8 @@ class LinoRequest:
             request: The FastAPI request object
         """
         self.request = request
+        self.max_bytes = max_bytes
+        self.supported = supported
         self._body: Any | None = None
         self._parsed = False
 
@@ -47,14 +58,15 @@ class LinoRequest:
 
         content_type = self.request.headers.get("content-type", "")
 
-        if LINO_CONTENT_TYPE in content_type:
-            raw_body = await self.request.body()
-            body_str = raw_body.decode("utf-8")
-
-            if body_str.strip():
-                self._body = decode(body_str)
-            else:
-                self._body = None
+        if is_decodable_media_type(parse_content_type(content_type)):
+            chunks = bytearray()
+            async for chunk in self.request.stream():
+                chunks.extend(chunk)
+                if len(chunks) > self.max_bytes:
+                    raise LinoHttpError(413, "Request body too large")
+            self._body, _ = decode_request_body(
+                bytes(chunks), content_type, max_bytes=self.max_bytes, supported=self.supported
+            )
         else:
             # Fall back to treating as plain text
             raw_body = await self.request.body()
@@ -88,10 +100,12 @@ class LinoResponse(PlainTextResponse):
             **kwargs: Additional arguments for PlainTextResponse
         """
         # Encode the content as LINO
-        encoded_content = encode(content) if content is not None else encode(None)
+        media_type = kwargs.pop("media_type", self.media_type)
+        encoded_content = encode_for(content, media_type)
 
         super().__init__(
             content=encoded_content,
+            media_type=media_type,
             status_code=status_code,
             headers=headers,
             **kwargs,
@@ -140,6 +154,15 @@ class LinoAPIRoute(APIRoute):
         return lino_handler
 
 
+def _request_endpoint(func: Callable, wrapper: Callable) -> Callable:
+    # Keep the user's endpoint metadata, but let FastAPI inject the wrapper's
+    # Request rather than interpreting the user's `body` as a query parameter.
+    request_signature = inspect.signature(wrapper)
+    wraps(func)(wrapper)
+    wrapper.__signature__ = request_signature
+    return wrapper
+
+
 class LinoAPI:
     """
     LinoAPI class - wraps FastAPI with LINO support.
@@ -153,6 +176,8 @@ class LinoAPI:
         title: str = "LINO REST API",
         description: str = "REST API using Links Notation",
         version: str = "0.1.0",
+        supported: list[str] | None = None,
+        max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
         **kwargs,
     ):
         """
@@ -164,6 +189,8 @@ class LinoAPI:
             version: API version
             **kwargs: Additional FastAPI arguments
         """
+        self.supported = supported
+        self.max_body_bytes = max_body_bytes
         self.app = FastAPI(
             title=title,
             description=description,
@@ -181,12 +208,10 @@ class LinoAPI:
         """
 
         def decorator(func: Callable) -> Callable:
-            @wraps(func)
             async def wrapper(request: Request) -> LinoResponse:
-                result = await self._call_handler(func, request)
-                return LinoResponse(content=result)
+                return await self._dispatch(func, request)
 
-            self.app.get(path, **kwargs)(wrapper)
+            self.app.get(path, **kwargs)(_request_endpoint(func, wrapper))
             return func
 
         return decorator
@@ -201,12 +226,10 @@ class LinoAPI:
         """
 
         def decorator(func: Callable) -> Callable:
-            @wraps(func)
             async def wrapper(request: Request) -> LinoResponse:
-                result = await self._call_handler(func, request)
-                return LinoResponse(content=result)
+                return await self._dispatch(func, request)
 
-            self.app.post(path, **kwargs)(wrapper)
+            self.app.post(path, **kwargs)(_request_endpoint(func, wrapper))
             return func
 
         return decorator
@@ -221,12 +244,10 @@ class LinoAPI:
         """
 
         def decorator(func: Callable) -> Callable:
-            @wraps(func)
             async def wrapper(request: Request) -> LinoResponse:
-                result = await self._call_handler(func, request)
-                return LinoResponse(content=result)
+                return await self._dispatch(func, request)
 
-            self.app.put(path, **kwargs)(wrapper)
+            self.app.put(path, **kwargs)(_request_endpoint(func, wrapper))
             return func
 
         return decorator
@@ -241,12 +262,10 @@ class LinoAPI:
         """
 
         def decorator(func: Callable) -> Callable:
-            @wraps(func)
             async def wrapper(request: Request) -> LinoResponse:
-                result = await self._call_handler(func, request)
-                return LinoResponse(content=result)
+                return await self._dispatch(func, request)
 
-            self.app.delete(path, **kwargs)(wrapper)
+            self.app.delete(path, **kwargs)(_request_endpoint(func, wrapper))
             return func
 
         return decorator
@@ -261,15 +280,24 @@ class LinoAPI:
         """
 
         def decorator(func: Callable) -> Callable:
-            @wraps(func)
             async def wrapper(request: Request) -> LinoResponse:
-                result = await self._call_handler(func, request)
-                return LinoResponse(content=result)
+                return await self._dispatch(func, request)
 
-            self.app.patch(path, **kwargs)(wrapper)
+            self.app.patch(path, **kwargs)(_request_endpoint(func, wrapper))
             return func
 
         return decorator
+
+    async def _dispatch(self, func: Callable, request: Request):
+        """Negotiate and render decorated routes, including binary problems."""
+        media_type = LINO_CONTENT_TYPE
+        try:
+            media_type = negotiate_request(request.headers, self.supported)
+            result = await self._call_handler(func, request)
+            return LinoResponse(result, media_type=media_type, headers={"Vary": "Accept"})
+        except LinoHttpError as error:
+            parts = build_problem_response(error, media_type=media_type, instance=request.url.path)
+            return PlainTextResponse(parts.body, status_code=parts.status, headers=parts.headers)
 
     async def _call_handler(self, func: Callable, request: Request) -> Any:
         """
@@ -282,8 +310,6 @@ class LinoAPI:
         Returns:
             Handler result
         """
-        import inspect
-
         sig = inspect.signature(func)
         params = sig.parameters
 
@@ -293,7 +319,9 @@ class LinoAPI:
             if name == "request":
                 kwargs["request"] = request
             elif name == "body":
-                kwargs["body"] = await lino_request_handler(request)
+                kwargs["body"] = await LinoRequest(
+                    request, max_bytes=self.max_body_bytes, supported=self.supported
+                ).body()
 
         # Check if the function is a coroutine
         if inspect.iscoroutinefunction(func):

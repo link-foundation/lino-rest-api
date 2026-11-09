@@ -11,8 +11,11 @@ dispatch described in ``docs/spec/README.md`` section 2.
 import json
 from typing import Any
 
+from links_notation import BinaryLinoCodec, DecodeLimits, Parser, format_links
+
 from .media_type import (
     JSON_CONTENT_TYPE,
+    LINO_BINARY_CONTENT_TYPE,
     LINO_COMPACT_CONTENT_TYPE,
     LINO_CONTENT_TYPE,
     LINO_LINE_CONTENT_TYPE,
@@ -93,7 +96,7 @@ def encode_compact_notation(value: Any) -> str:
     return _encode_compact(value)
 
 
-def encode_for(value: Any, media_type: str) -> str:
+def encode_for(value: Any, media_type: str) -> str | bytes:
     """
     Encode a value for a concrete media type.
 
@@ -108,6 +111,8 @@ def encode_for(value: Any, media_type: str) -> str:
         TypeError: When the media type is not a representation of this API
     """
     resolved = normalize_media_type(media_type)
+    if resolved == LINO_BINARY_CONTENT_TYPE:
+        return _binary_codec().encode(_binary_document(value))
     if resolved == LINO_CONTENT_TYPE:
         return encode(value)
     if resolved == LINO_LINE_CONTENT_TYPE:
@@ -122,7 +127,7 @@ def encode_for(value: Any, media_type: str) -> str:
     raise TypeError(f"Cannot encode to media type: {media_type}")
 
 
-def decode_from(body: str, media_type: str) -> Any:
+def decode_from(body: str | bytes, media_type: str) -> Any:
     """
     Decode a representation of a concrete media type.
 
@@ -137,6 +142,12 @@ def decode_from(body: str, media_type: str) -> Any:
         TypeError: When the media type is not a representation of this API
     """
     resolved = normalize_media_type(media_type)
+    if resolved == LINO_BINARY_CONTENT_TYPE:
+        document = _binary_codec().decode(body)
+        _translate_tags(document, {"null": "None", "object": "dict", "array": "list"})
+        return decode(format_links(document))
+    if isinstance(body, bytes):
+        body = body.decode("utf-8")
     if resolved in (LINO_CONTENT_TYPE, LINO_COMPACT_CONTENT_TYPE):
         return decode(body)
     if resolved == LINO_LINE_CONTENT_TYPE:
@@ -150,3 +161,28 @@ def decode_from(body: str, media_type: str) -> Any:
 encode_line = encode_single_line
 decode_line = decode_single_line
 encode_compact = encode_compact_notation
+
+
+# Keep the same finite work budgets as JavaScript and Rust.
+def _binary_codec() -> BinaryLinoCodec:
+    return BinaryLinoCodec(limits=DecodeLimits(
+        max_links=65536, max_references=262144, max_nodes=65536,
+        max_string_bytes=1048576, max_depth=64,
+    ))
+
+
+def _binary_document(value: Any):
+    # Compact Python tags have aliases understood by all object codecs. Write
+    # canonical tags for byte-identical binary packets in every implementation.
+    document = Parser().parse(encode_compact_notation(value))
+    _translate_tags(document, {"None": "null", "dict": "object", "list": "array"})
+    return document
+
+
+def _translate_tags(document, aliases):
+    pending = list(document)
+    while pending:
+        node = pending.pop()
+        if node.values and node.values[0].id in aliases:
+            node.values[0].id = aliases[node.values[0].id]
+        pending.extend(node.values)

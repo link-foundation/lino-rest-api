@@ -7,6 +7,8 @@
 import { decodeFrom, encodeFor } from "./codec.js";
 import {
   LINO_CONTENT_TYPE,
+  LINO_BINARY_CONTENT_TYPE,
+  normalizeMediaType,
   SUPPORTED_MEDIA_TYPES,
   isDecodableMediaType,
   negotiateMediaType,
@@ -20,6 +22,7 @@ import { appendVary } from "./headers.js";
 
 export {
   LINO_CONTENT_TYPE,
+  LINO_BINARY_CONTENT_TYPE,
   LINO_LINE_CONTENT_TYPE,
   LINO_COMPACT_CONTENT_TYPE,
   JSON_CONTENT_TYPE,
@@ -68,9 +71,7 @@ function readBody(req, maxBytes) {
       }
       chunks.push(chunk);
     });
-    req.on("end", () =>
-      finish(resolve, Buffer.concat(chunks).toString("utf-8")),
-    );
+    req.on("end", () => finish(resolve, Buffer.concat(chunks)));
     req.on("error", (error) => finish(reject, error));
   });
 }
@@ -102,7 +103,12 @@ export function linoBodyParser(options = {}) {
       return;
     }
 
-    if (!isDecodableMediaType(mediaType)) {
+    if (
+      !isDecodableMediaType(mediaType) ||
+      !(options.supported ?? SUPPORTED_MEDIA_TYPES).includes(
+        normalizeMediaType(mediaType),
+      )
+    ) {
       next(
         new LinoHttpError(415, `Unsupported request media type: ${mediaType}`, {
           extensions: { supported: SUPPORTED_MEDIA_TYPES },
@@ -114,7 +120,14 @@ export function linoBodyParser(options = {}) {
     try {
       const raw = await readBody(req, maxBytes);
       req.linoRequestMediaType = mediaType;
-      req.body = raw.trim() ? decodeFrom(raw, mediaType) : undefined;
+      req.body =
+        mediaType === LINO_BINARY_CONTENT_TYPE
+          ? raw.length
+            ? decodeFrom(raw, mediaType)
+            : undefined
+          : raw.toString("utf-8").trim()
+            ? decodeFrom(raw.toString("utf-8"), mediaType)
+            : undefined;
       next();
     } catch (error) {
       if (error instanceof LinoHttpError) {
@@ -211,7 +224,7 @@ export function linoNegotiation(options = {}) {
 
       res.status(statusCode);
       res.set("Content-Type", withCharset(selected));
-      return res.send(body);
+      return res.send(typeof body === "string" ? body : Buffer.from(body));
     };
 
     /**
@@ -250,7 +263,8 @@ export function sendProblem(req, res, error) {
   if (req.method === "HEAD") {
     return res.end();
   }
-  return res.send(encodeFor(problem, mediaType));
+  const body = encodeFor(problem, mediaType);
+  return res.send(typeof body === "string" ? body : Buffer.from(body));
 }
 
 /**

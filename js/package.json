@@ -31,8 +31,8 @@
   },
   "dependencies": {
     "express": "^5.2.1",
-    "links-notation": "^0.20.0",
-    "lino-objects-codec": "^0.8.0"
+    "links-notation": "^0.31.3",
+    "lino-objects-codec": "^0.9.5"
   },
   "devDependencies": {
     "jsdoc": "^4.0.5",

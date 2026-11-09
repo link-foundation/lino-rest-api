@@ -118,7 +118,7 @@ class LinoApp:
             description: Prose description of the service
             cors: Enable CORS, optionally with a policy
             describe: Serve the service description
-            supported: Representations the server may produce
+            supported: Representations the server may accept and produce
             max_body_bytes: Largest accepted request body
             expose_traceback: Attach tracebacks to 5xx problems
             default_limit: Default collection page size
@@ -456,6 +456,7 @@ class LinoApp:
                     raw,
                     headers.get("content-type"),
                     max_bytes=self.max_body_bytes,
+                    supported=self.supported,
                 )
                 request.body = body
                 request.request_media_type = request_media_type
@@ -553,7 +554,7 @@ class LinoApp:
             parts: Response to write
             head: Drop the body, as ``HEAD`` requires
         """
-        body = parts.body.encode("utf-8")
+        body = parts.body if isinstance(parts.body, bytes) else parts.body.encode("utf-8")
         headers = [
             (name.encode("latin-1"), value.encode("latin-1"))
             for name, value in parts.headers.items()

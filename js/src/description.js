@@ -7,7 +7,10 @@
  * working against a LINO API.
  */
 
-import { SUPPORTED_MEDIA_TYPES } from "./media-type.js";
+import {
+  LINO_BINARY_CONTENT_TYPE,
+  SUPPORTED_MEDIA_TYPES,
+} from "./media-type.js";
 
 /** Version of the description document this package emits. */
 export const LINO_API_DESCRIPTION_VERSION = "1.0";
@@ -90,7 +93,15 @@ export function openApiDocument(
   mediaTypes = SUPPORTED_MEDIA_TYPES,
 ) {
   const content = Object.fromEntries(
-    mediaTypes.map((mediaType) => [mediaType, { schema: LINO_SCHEMA }]),
+    mediaTypes.map((mediaType) => [
+      mediaType,
+      {
+        schema:
+          mediaType === LINO_BINARY_CONTENT_TYPE
+            ? { ...LINO_SCHEMA, format: "binary" }
+            : LINO_SCHEMA,
+      },
+    ]),
   );
 
   const paths = {};
