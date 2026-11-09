@@ -16,6 +16,7 @@ from lino_rest_api import (
     AsyncLinoClient,
     LinoClient,
     LinoClientError,
+    MemoryStore,
     compute_etag,
     create_lino_app,
     decode_from,
@@ -135,3 +136,16 @@ async def test_fastapi_decorators_negotiate_binary_and_refuse_disabled_json():
         assert decode_from(response.content, BINARY)['status'] == 415
         response = await s.raw('/echo', 'POST', headers={'accept': 'application/json'})
         assert response.status_code == 406
+
+
+async def test_binary_resource_etags_support_conditional_writes():
+    app = create_lino_app(supported=[TEXT, BINARY])
+    app.resource('/items', MemoryStore([{'name': 'old'}]))
+    async with serve(app, accept=BINARY, content_type=BINARY) as s:
+        first = await s.client.get('/items/1')
+        assert first.etag == compute_etag(encode_for(first.data, BINARY))
+        changed = await s.client.put('/items/1', {'name': 'new'}, if_match=first.etag)
+        assert changed.data['name'] == 'new'
+        with pytest.raises(LinoClientError) as caught:
+            await s.client.put('/items/1', {'name': 'stale'}, if_match=first.etag)
+        assert caught.value.status == 412

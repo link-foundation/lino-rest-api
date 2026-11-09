@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { BinaryLinoCodec, DecodeLimits, Link } from "links-notation";
 import {
   createLinoApp,
+  MemoryStore,
   LinoClient,
   LinoClientError,
   encodeFor,
@@ -126,4 +127,27 @@ test("every binary graph budget rejects a small hostile packet", () => {
       `${limit}: ${error.message}`,
     );
   }
+});
+
+test("binary resource ETags support conditional writes", async () => {
+  const app = createLinoApp({ supported: [text, binary] });
+  app.resource("/items", new MemoryStore({ items: [{ name: "old" }] }));
+  await withApp(app, async ({ base }) => {
+    const client = new LinoClient(base, {
+      accept: binary,
+      contentType: binary,
+    });
+    const first = await client.get("/items/1");
+    assert.equal(first.etag, computeETag(encodeFor(first.data, binary)));
+    const changed = await client.put(
+      "/items/1",
+      { name: "new" },
+      { ifMatch: first.etag },
+    );
+    assert.equal(changed.data.name, "new");
+    const stale = await rejects(() =>
+      client.put("/items/1", { name: "stale" }, { ifMatch: first.etag }),
+    );
+    assert.equal(stale.status, 412);
+  });
 });

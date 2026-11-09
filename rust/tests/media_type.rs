@@ -124,17 +124,17 @@ fn an_unknown_media_type_is_not_decodable() {
 #[test]
 fn specific_ranges_override_wildcards_and_ties_use_server_order() {
     assert_eq!(
-        negotiate_media_type(Some("text/lino;q=0, */*;q=1"), &vec!["text/lino".into()]).as_deref(),
+        negotiate_media_type(Some("text/lino;q=0, */*;q=1"), &["text/lino".into()]).as_deref(),
         None
     );
     assert_eq!(
-        negotiate_media_type(Some("text/*;q=0, */*;q=1"), &vec!["text/lino".into()]).as_deref(),
+        negotiate_media_type(Some("text/*;q=0, */*;q=1"), &["text/lino".into()]).as_deref(),
         None
     );
     assert_eq!(
         negotiate_media_type(
             Some("text/lino;q=0.4, text/*;q=0, */*;q=0"),
-            &vec!["text/lino".into()]
+            &["text/lino".into()]
         )
         .as_deref(),
         Some("text/lino")
@@ -142,7 +142,7 @@ fn specific_ranges_override_wildcards_and_ties_use_server_order() {
     assert_eq!(
         negotiate_media_type(
             Some("text/lino;q=0.2, application/json;q=0.8, */*;q=1"),
-            &vec!["text/lino".into(), "application/json".into()]
+            &["text/lino".into(), "application/json".into()]
         )
         .as_deref(),
         Some("application/json")
@@ -150,7 +150,7 @@ fn specific_ranges_override_wildcards_and_ties_use_server_order() {
     assert_eq!(
         negotiate_media_type(
             Some("application/json;q=0.5, text/lino;q=0.5"),
-            &vec!["text/lino".into(), "application/json".into()]
+            &["text/lino".into(), "application/json".into()]
         )
         .as_deref(),
         Some("text/lino")

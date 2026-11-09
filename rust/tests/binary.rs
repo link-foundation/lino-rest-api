@@ -179,3 +179,37 @@ fn every_graph_budget_rejects_small_hostile_packet() {
         );
     }
 }
+
+#[tokio::test]
+async fn binary_resource_etags_support_conditional_writes() {
+    use lino_rest_api::{resource::ResourceOptions, store::MemoryStore};
+    use std::sync::Arc;
+    let mut app = LinoApp::new().with_supported([TEXT.into(), BINARY.into()]);
+    app.resource(
+        "/items",
+        Arc::new(MemoryStore::seeded([from_json(
+            &serde_json::json!({"name":"old"}),
+        )])),
+        ResourceOptions::new(),
+    );
+    let first = app
+        .respond(RawRequest::new("GET", "/items/1").with_header("Accept", BINARY))
+        .await;
+    assert_eq!(first.status, 200);
+    let etag = first.headers.get("ETag").unwrap();
+    assert_eq!(etag, compute_etag(first.body_bytes()));
+    let replacement =
+        encode_for_bytes(&from_json(&serde_json::json!({"name":"new"})), BINARY).unwrap();
+    for status in [200, 412] {
+        let changed = app
+            .respond(
+                RawRequest::new("PUT", "/items/1")
+                    .with_header("Accept", BINARY)
+                    .with_header("If-Match", etag)
+                    .with_body(replacement.clone(), BINARY),
+            )
+            .await;
+        assert_eq!(changed.status, status);
+        assert!(decode_from(changed.body_bytes(), BINARY).is_ok());
+    }
+}
