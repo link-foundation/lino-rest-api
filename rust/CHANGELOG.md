@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-09
+
+- Add bounded application/lino-binary server and client transport in JavaScript, Python and Rust, preserving the typed object AST and enforcing request-byte and graph limits. Keep JSON independently configurable and honor specific Accept exclusions before wildcard quality values.
+
 ## [0.2.2] - 2026-10-23
 
 - CI/CD: crates.io publishing tries trusted publishing (OIDC) first and falls back to the `CARGO_REGISTRY_TOKEN` (or `CARGO_TOKEN`) secret when OIDC is unavailable.

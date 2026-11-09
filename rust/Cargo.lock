@@ -767,7 +767,7 @@ dependencies = [
 
 [[package]]
 name = "lino-rest-api"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "async-trait",
  "axum",
