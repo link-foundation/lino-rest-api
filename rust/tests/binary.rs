@@ -214,3 +214,27 @@ async fn binary_resource_etags_support_conditional_writes() {
         assert!(decode_from(changed.body_bytes(), BINARY).is_ok());
     }
 }
+
+#[tokio::test]
+async fn byte_transport_preserves_existing_text_charset_handling() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let router = axum::Router::new().route(
+        "/value",
+        axum::routing::get(|| async {
+            (
+                [("content-type", "text/plain; charset=windows-1252")],
+                vec![0xe9_u8],
+            )
+        }),
+    );
+    let task = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let response = LinoClient::new(format!("http://{address}"))
+        .get("/value", &RequestOptions::new())
+        .await
+        .unwrap();
+    assert_eq!(response.text, "é");
+    assert_eq!(response.bytes, [0xe9]);
+    task.abort();
+    assert!(task.await.unwrap_err().is_cancelled());
+}

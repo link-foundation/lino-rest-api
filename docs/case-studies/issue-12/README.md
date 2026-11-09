@@ -65,9 +65,9 @@ collision-free identifier. The regression checks both shared identity and cycles
 - `python/tests/test_binary.py`: twelve tests cover the same shared packets and
   limits, synchronous/asynchronous clients, ASGI, standalone FastAPI request and
   response wrappers, decorated FastAPI endpoints, and resource conditional writes.
-- `rust/tests/binary.rs`: six tests cover shared packets and limits, in-process
+- `rust/tests/binary.rs`: seven tests cover shared packets and limits, in-process
   responses, real axum/reqwest transport, streamed byte limits, and resource
-  conditional writes.
+  conditional writes, plus preservation of reqwest text charset/BOM handling.
 - Every language's existing media-type suite includes all requested specificity
   cases. The JavaScript regression was run against the old algorithm and failed
   (selected `text/lino` rather than `null`), then passed with the replacement.

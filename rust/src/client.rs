@@ -312,9 +312,26 @@ impl LinoClient {
         for (name, value) in response.headers() {
             headers.insert(name.as_str(), value.to_str().unwrap_or_default());
         }
-        let bytes = response.bytes().await?.to_vec();
-        let text = String::from_utf8_lossy(&bytes).into_owned();
-        let data = decode_response(status, &method_name, &headers, &bytes);
+        let raw_headers = response.headers().clone();
+        let body = response.bytes().await?;
+        let binary = parse_content_type(headers.get("content-type"))
+            == crate::media_type::LINO_BINARY_CONTENT_TYPE;
+        let text = if binary {
+            String::from_utf8_lossy(&body).into_owned()
+        } else {
+            // Keep reqwest's existing charset/BOM handling for text while
+            // retaining the original bytes for binary-aware callers.
+            let mut text_response = axum::http::Response::new(body.clone());
+            *text_response.headers_mut() = raw_headers;
+            reqwest::Response::from(text_response).text().await?
+        };
+        let bytes = body.to_vec();
+        let data = decode_response(
+            status,
+            &method_name,
+            &headers,
+            if binary { &bytes } else { text.as_bytes() },
+        );
 
         if status >= 400 {
             return Err(LinoClientError::of_status(status, data));
