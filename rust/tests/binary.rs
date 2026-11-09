@@ -1,4 +1,5 @@
 //! Binary byte transport and shared fixtures for issue #10.
+#![allow(clippy::result_large_err)]
 use links_notation::{LiNo, binary::BinaryLinoCodec};
 use lino_rest_api::codec::{BINARY_DECODE_LIMITS, from_json};
 use lino_rest_api::etag::compute_etag;
