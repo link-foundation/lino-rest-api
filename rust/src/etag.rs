@@ -14,8 +14,8 @@ use crate::problem::LinoHttpError;
 ///
 /// assert!(compute_etag("(a 1)").starts_with('"'));
 /// ```
-pub fn compute_etag(body: &str) -> String {
-    let digest = Sha256::digest(body.as_bytes());
+pub fn compute_etag(body: impl AsRef<[u8]>) -> String {
+    let digest = Sha256::digest(body.as_ref());
     let mut hex = String::with_capacity(64);
     for byte in digest {
         hex.push_str(&format!("{byte:02x}"));

@@ -21,6 +21,7 @@ from .etag import compute_etag, evaluate_preconditions
 from .media_type import (
     JSON_CONTENT_TYPE,
     JSON_PROBLEM_CONTENT_TYPE,
+    LINO_BINARY_CONTENT_TYPE,
     LINO_COMPACT_CONTENT_TYPE,
     LINO_CONTENT_TYPE,
     LINO_LINE_CONTENT_TYPE,
@@ -28,6 +29,7 @@ from .media_type import (
     SUPPORTED_MEDIA_TYPES,
     is_decodable_media_type,
     negotiate_media_type,
+    normalize_media_type,
     parse_content_type,
     problem_media_type,
     with_charset,
@@ -39,6 +41,7 @@ __all__ = [
     "DEFAULT_MAX_BODY_BYTES",
     "JSON_CONTENT_TYPE",
     "JSON_PROBLEM_CONTENT_TYPE",
+    "LINO_BINARY_CONTENT_TYPE",
     "LINO_COMPACT_CONTENT_TYPE",
     "LINO_CONTENT_TYPE",
     "LINO_LINE_CONTENT_TYPE",
@@ -100,7 +103,7 @@ class ResponseParts:
 
     status: int
     headers: dict[str, str] = field(default_factory=dict)
-    body: str = ""
+    body: str | bytes = ""
 
 
 def append_vary(headers: dict[str, str], field_name: str) -> None:
@@ -155,6 +158,7 @@ def decode_request_body(
     content_type: str | None,
     *,
     max_bytes: int = DEFAULT_MAX_BODY_BYTES,
+    supported: list[str] | None = None,
 ) -> tuple[Any, str | None]:
     """
     Decode a request body according to its ``Content-Type``.
@@ -181,15 +185,19 @@ def decode_request_body(
     if not media_type:
         return None, None
 
-    if not is_decodable_media_type(media_type):
+    candidates = SUPPORTED_MEDIA_TYPES if supported is None else supported
+    if (
+        not is_decodable_media_type(media_type)
+        or normalize_media_type(media_type) not in candidates
+    ):
         raise LinoHttpError(
             415,
             f"Unsupported request media type: {media_type}",
             extensions={"supported": list(SUPPORTED_MEDIA_TYPES)},
         )
 
-    text = raw.decode("utf-8", errors="replace")
-    if not text.strip():
+    text = raw if media_type == LINO_BINARY_CONTENT_TYPE else raw.decode("utf-8", errors="replace")
+    if not raw or (media_type != LINO_BINARY_CONTENT_TYPE and not text.strip()):
         return None, media_type
 
     try:

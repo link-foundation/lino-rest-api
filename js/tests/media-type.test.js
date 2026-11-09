@@ -100,3 +100,29 @@ test("withCharset appends utf-8", () => {
 test("an unknown media type is not decodable", () => {
   assert.ok(!isDecodableMediaType("application/xml"));
 });
+
+test("specific ranges override wildcards including zero; ties use server order", () => {
+  assert.equal(
+    negotiateMediaType("text/lino;q=0, */*;q=1", ["text/lino"]),
+    null,
+  );
+  assert.equal(negotiateMediaType("text/*;q=0, */*;q=1", ["text/lino"]), null);
+  assert.equal(
+    negotiateMediaType("text/lino;q=0.4, text/*;q=0, */*;q=0", ["text/lino"]),
+    "text/lino",
+  );
+  assert.equal(
+    negotiateMediaType("text/lino;q=0.2, application/json;q=0.8, */*;q=1", [
+      "text/lino",
+      "application/json",
+    ]),
+    "application/json",
+  );
+  assert.equal(
+    negotiateMediaType("application/json;q=0.5, text/lino;q=0.5", [
+      "text/lino",
+      "application/json",
+    ]),
+    "text/lino",
+  );
+});

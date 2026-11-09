@@ -120,3 +120,39 @@ fn with_charset_appends_utf_8() {
 fn an_unknown_media_type_is_not_decodable() {
     assert!(!is_decodable_media_type("application/xml"));
 }
+
+#[test]
+fn specific_ranges_override_wildcards_and_ties_use_server_order() {
+    assert_eq!(
+        negotiate_media_type(Some("text/lino;q=0, */*;q=1"), &vec!["text/lino".into()]).as_deref(),
+        None
+    );
+    assert_eq!(
+        negotiate_media_type(Some("text/*;q=0, */*;q=1"), &vec!["text/lino".into()]).as_deref(),
+        None
+    );
+    assert_eq!(
+        negotiate_media_type(
+            Some("text/lino;q=0.4, text/*;q=0, */*;q=0"),
+            &vec!["text/lino".into()]
+        )
+        .as_deref(),
+        Some("text/lino")
+    );
+    assert_eq!(
+        negotiate_media_type(
+            Some("text/lino;q=0.2, application/json;q=0.8, */*;q=1"),
+            &vec!["text/lino".into(), "application/json".into()]
+        )
+        .as_deref(),
+        Some("application/json")
+    );
+    assert_eq!(
+        negotiate_media_type(
+            Some("application/json;q=0.5, text/lino;q=0.5"),
+            &vec!["text/lino".into(), "application/json".into()]
+        )
+        .as_deref(),
+        Some("text/lino")
+    );
+}

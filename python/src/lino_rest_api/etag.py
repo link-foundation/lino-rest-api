@@ -17,7 +17,7 @@ class PreconditionResult:
     not_modified: bool
 
 
-def compute_etag(body: str) -> str:
+def compute_etag(body: str | bytes) -> str:
     """
     Compute the strong entity tag of an encoded representation.
 
@@ -27,7 +27,7 @@ def compute_etag(body: str) -> str:
     Returns:
         Quoted hexadecimal SHA-256
     """
-    digest = sha256(body.encode("utf-8")).hexdigest()
+    digest = sha256(body if isinstance(body, bytes) else body.encode("utf-8")).hexdigest()
     return f'"{digest}"'
 
 

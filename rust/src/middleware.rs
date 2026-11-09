@@ -7,12 +7,12 @@
 
 use lino_objects_codec::LinoValue;
 
-use crate::codec::{decode_from, encode_for};
+use crate::codec::{decode_from, encode_for_bytes};
 use crate::etag::{compute_etag, evaluate_preconditions};
 use crate::headers::{Headers, append_list_value};
 use crate::media_type::{
-    LINO_CONTENT_TYPE, is_decodable_media_type, negotiate_media_type, parse_content_type,
-    problem_media_type, supported_media_types, with_charset,
+    LINO_BINARY_CONTENT_TYPE, LINO_CONTENT_TYPE, is_decodable_media_type, negotiate_media_type,
+    parse_content_type, problem_media_type, supported_media_types, with_charset,
 };
 use crate::problem::LinoHttpError;
 use crate::response::Body;
@@ -30,6 +30,8 @@ pub struct ResponseParts {
     pub headers: Headers,
     /// Encoded body; empty for `204` and `304`.
     pub body: String,
+    /// Binary packet, when the representation is binary. Use `body_bytes()` on the wire.
+    pub binary_body: Option<Vec<u8>>,
 }
 
 impl ResponseParts {
@@ -39,6 +41,28 @@ impl ResponseParts {
             status,
             headers,
             body: body.into(),
+            binary_body: None,
+        }
+    }
+    /// Encoded bytes for either a text or a binary representation.
+    pub fn body_bytes(&self) -> &[u8] {
+        self.binary_body.as_deref().unwrap_or(self.body.as_bytes())
+    }
+
+    fn encoded(status: u16, headers: Headers, bytes: Vec<u8>, media_type: &str) -> Self {
+        if media_type == LINO_BINARY_CONTENT_TYPE {
+            Self {
+                status,
+                headers,
+                body: String::new(),
+                binary_body: Some(bytes),
+            }
+        } else {
+            Self::new(
+                status,
+                headers,
+                String::from_utf8(bytes).expect("text encoder emits UTF-8"),
+            )
         }
     }
 }
@@ -124,15 +148,17 @@ pub fn decode_request_body(
         ));
     }
 
-    let text = String::from_utf8_lossy(raw);
-    if text.trim().is_empty() {
+    if raw.is_empty()
+        || (media_type != LINO_BINARY_CONTENT_TYPE
+            && String::from_utf8_lossy(raw).trim().is_empty())
+    {
         return Ok(DecodedBody {
             value: None,
             media_type: Some(media_type),
         });
     }
 
-    match decode_from(&text, &media_type) {
+    match decode_from(raw, &media_type) {
         Ok(value) => Ok(DecodedBody {
             value: Some(value),
             media_type: Some(media_type),
@@ -189,8 +215,8 @@ pub fn build_response(
     }
 
     let encoded = match body {
-        Body::Raw(text) => text.clone(),
-        Body::Value(value) => encode_for(value, media_type)
+        Body::Raw(text) => text.as_bytes().to_vec(),
+        Body::Value(value) => encode_for_bytes(value, media_type)
             .map_err(|error| LinoHttpError::new(500, Some(&error.to_string())))?,
         Body::Empty => unreachable!("handled above"),
     };
@@ -213,7 +239,12 @@ pub fn build_response(
     }
 
     response_headers.insert("Content-Type", with_charset(media_type));
-    Ok(ResponseParts::new(status, response_headers, encoded))
+    Ok(ResponseParts::encoded(
+        status,
+        response_headers,
+        encoded,
+        media_type,
+    ))
 }
 
 /// Render an error as problem details (specification section 5).
@@ -250,9 +281,9 @@ pub fn build_problem_response(
 
     // The problem itself must reach the client even when the negotiated
     // representation is the one that failed, so encoding falls back to LINO.
-    let body = encode_for(&problem, media_type)
-        .or_else(|_| encode_for(&problem, LINO_CONTENT_TYPE))
-        .unwrap_or_else(|_| String::new());
+    let body = encode_for_bytes(&problem, media_type)
+        .or_else(|_| encode_for_bytes(&problem, LINO_CONTENT_TYPE))
+        .unwrap_or_default();
 
-    ResponseParts::new(error.status, headers, body)
+    ResponseParts::encoded(error.status, headers, body, media_type)
 }

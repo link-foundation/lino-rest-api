@@ -1,3 +1,9 @@
+import {
+  BinaryLinoCodec,
+  DecodeLimits,
+  Parser,
+  formatLinks,
+} from "links-notation";
 /**
  * Codec layer: every conversion between host values and the wire.
  *
@@ -18,6 +24,7 @@ import {
 } from "lino-objects-codec";
 
 import {
+  LINO_BINARY_CONTENT_TYPE,
   LINO_CONTENT_TYPE,
   LINO_LINE_CONTENT_TYPE,
   LINO_COMPACT_CONTENT_TYPE,
@@ -83,11 +90,15 @@ export function encodeCompactNotation(value) {
  *
  * @param {*} value - Value to encode
  * @param {string} mediaType - One of the media types of the specification
- * @returns {string} Encoded representation
+ * @returns {string|Uint8Array} Encoded representation
  * @throws {TypeError} When the media type is not a representation of this API
  */
 export function encodeFor(value, mediaType) {
   switch (normalizeMediaType(mediaType)) {
+    case LINO_BINARY_CONTENT_TYPE:
+      return binaryCodec().encode(
+        new Parser().parse(encodeCompactNotation(value)),
+      );
     case LINO_CONTENT_TYPE:
       return encode(value);
     case LINO_LINE_CONTENT_TYPE:
@@ -104,13 +115,15 @@ export function encodeFor(value, mediaType) {
 /**
  * Decode a representation of a concrete media type.
  *
- * @param {string} body - Raw request or response body
+ * @param {string|Uint8Array} body - Raw request or response body
  * @param {string} mediaType - Media type the body was sent with
  * @returns {*} Decoded value
  * @throws {TypeError} When the media type is not a representation of this API
  */
 export function decodeFrom(body, mediaType) {
   switch (normalizeMediaType(mediaType)) {
+    case LINO_BINARY_CONTENT_TYPE:
+      return decodeBinary(body);
     case LINO_CONTENT_TYPE:
     case LINO_COMPACT_CONTENT_TYPE:
       return decode(body);
@@ -124,3 +137,48 @@ export function decodeFrom(body, mediaType) {
 }
 
 export { CircularReferenceError };
+
+/** Finite budgets for binary packets and their expanded AST, on encode/decode. */
+export const BINARY_DECODE_LIMITS = Object.freeze({
+  maxLinks: 65536,
+  maxReferences: 262144,
+  maxNodes: 65536,
+  maxStringBytes: 1048576,
+  maxDepth: 64,
+});
+
+function binaryCodec() {
+  return new BinaryLinoCodec(undefined, new DecodeLimits(BINARY_DECODE_LIMITS));
+}
+
+function decodeBinary(body) {
+  const document = binaryCodec().decode(body);
+  // ObjectCodec accepts legacy (array obj_N ...) metadata. An anonymous array
+  // whose first member is a named object otherwise looks like that legacy form.
+  // Give only those containers an explicit, collision-free id before formatting.
+  const nodes = [];
+  const pending = [...document];
+  const ids = new Set();
+  while (pending.length) {
+    const node = pending.pop();
+    nodes.push(node);
+    if (node.id) ids.add(node.id);
+    pending.push(...node.values);
+  }
+  let counter = 0;
+  for (const node of nodes) {
+    if (
+      !node.id &&
+      ["array", "object"].includes(node.values[0]?.id) &&
+      node.values[1]?.id?.startsWith("obj_")
+    ) {
+      let id;
+      do {
+        id = `obj_binary_${counter++}`;
+      } while (ids.has(id));
+      node.id = id;
+      ids.add(id);
+    }
+  }
+  return decode(formatLinks(document));
+}

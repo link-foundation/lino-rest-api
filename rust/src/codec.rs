@@ -14,8 +14,8 @@ use lino_objects_codec::{
 use serde_json::{Map, Number, Value as JsonValue};
 
 use crate::media_type::{
-    JSON_CONTENT_TYPE, LINO_COMPACT_CONTENT_TYPE, LINO_CONTENT_TYPE, LINO_LINE_CONTENT_TYPE,
-    normalize_media_type,
+    JSON_CONTENT_TYPE, LINO_BINARY_CONTENT_TYPE, LINO_COMPACT_CONTENT_TYPE, LINO_CONTENT_TYPE,
+    LINO_LINE_CONTENT_TYPE, normalize_media_type,
 };
 
 /// Why a value could not be moved between a representation and a [`LinoValue`].
@@ -80,7 +80,17 @@ pub fn encode_for(value: &LinoValue, media_type: &str) -> Result<String, CodecEr
 }
 
 /// Decode a representation of a concrete media type.
-pub fn decode_from(body: &str, media_type: &str) -> Result<LinoValue, CodecError> {
+pub fn decode_from(body: impl AsRef<[u8]>, media_type: &str) -> Result<LinoValue, CodecError> {
+    let bytes = body.as_ref();
+    if normalize_media_type(media_type) == LINO_BINARY_CONTENT_TYPE {
+        let mut document = binary_codec()
+            .decode(bytes)
+            .map_err(|error| CodecError::Malformed(error.to_string()))?;
+        normalize_empty_strings(&mut document, false);
+        return decode(&links_notation::format_links(&document));
+    }
+    let body =
+        std::str::from_utf8(bytes).map_err(|error| CodecError::Malformed(error.to_string()))?;
     match normalize_media_type(media_type) {
         LINO_CONTENT_TYPE | LINO_COMPACT_CONTENT_TYPE => decode(body),
         LINO_LINE_CONTENT_TYPE => decode_single_line(body),
@@ -242,6 +252,60 @@ pub fn to_json(value: &LinoValue) -> JsonValue {
                 map.insert(key.clone(), to_json(item));
             }
             JsonValue::Object(map)
+        }
+    }
+}
+
+/// Finite budgets shared with the JavaScript and Python transports.
+pub const BINARY_DECODE_LIMITS: links_notation::binary::DecodeLimits =
+    links_notation::binary::DecodeLimits {
+        max_links: 65536,
+        max_references: 262144,
+        max_nodes: 65536,
+        max_string_bytes: 1048576,
+        max_depth: 64,
+    };
+
+fn binary_codec() -> links_notation::binary::BinaryLinoCodec {
+    links_notation::binary::BinaryLinoCodec {
+        limits: BINARY_DECODE_LIMITS,
+        ..Default::default()
+    }
+}
+
+/// Encode any representation as bytes. The existing `encode_for` serves text;
+/// this byte API also supports binary packets without a UTF-8 conversion.
+pub fn encode_for_bytes(value: &LinoValue, media_type: &str) -> Result<Vec<u8>, CodecError> {
+    if normalize_media_type(media_type) == LINO_BINARY_CONTENT_TYPE {
+        let mut document = links_notation::parse_lino_to_links(&encode_compact_notation(value))
+            .map_err(|error| CodecError::Malformed(error.to_string()))?;
+        normalize_empty_strings(&mut document, true);
+        return binary_codec()
+            .encode(&document)
+            .map_err(|error| CodecError::Malformed(error.to_string()));
+    }
+    encode_for(value, media_type).map(String::into_bytes)
+}
+
+// The Rust object codec writes an empty base64 string as `(str )`. Restore
+// its explicit empty payload so the binary AST matches JS and Python.
+fn normalize_empty_strings(document: &mut [links_notation::LiNo<String>], explicit: bool) {
+    use links_notation::LiNo;
+    for node in document {
+        if let LiNo::Link { values, .. } = node {
+            if matches!(values.first(), Some(LiNo::Ref(tag)) if tag == "str") {
+                if explicit && values.len() == 1 {
+                    values.push(LiNo::reference(String::new()));
+                } else if !explicit
+                    && values.len() == 2
+                    && matches!(&values[1], LiNo::Ref(payload) if payload.is_empty())
+                {
+                    // The old object parser does not recognize the new formatter's
+                    // length-prefixed empty reference (~1{}); use its empty form.
+                    values.truncate(1);
+                }
+            }
+            normalize_empty_strings(values, explicit);
         }
     }
 }

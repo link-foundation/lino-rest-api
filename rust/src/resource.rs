@@ -9,7 +9,7 @@ use std::sync::Arc;
 use lino_objects_codec::LinoValue;
 
 use crate::app::LinoApp;
-use crate::codec::encode_for;
+use crate::codec::encode_for_bytes;
 use crate::collection::pagination_link_header;
 use crate::etag::{compute_etag, evaluate_preconditions};
 use crate::problem::LinoHttpError;
@@ -115,7 +115,7 @@ pub fn representation_etag(
     request: &LinoRequest,
     value: &LinoValue,
 ) -> Result<String, LinoHttpError> {
-    let encoded = encode_for(value, &request.media_type)
+    let encoded = encode_for_bytes(value, &request.media_type)
         .map_err(|error| LinoHttpError::new(500, Some(&error.to_string())))?;
     Ok(compute_etag(&encoded))
 }

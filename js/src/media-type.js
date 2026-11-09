@@ -2,8 +2,8 @@
  * Media types and content negotiation (specification §2).
  *
  * Negotiation follows RFC 9110 §12.5.1: the `Accept` header is parsed into ranges
- * with quality values, the ranges are ordered by quality and then by specificity,
- * and the first range that matches a representation the server can produce wins.
+ * with quality values. Each representation takes the quality of its most specific
+ * matching range; the highest positive quality wins, then server preference.
  */
 
 /** Readable, indented Links Notation. The default representation. */
@@ -14,6 +14,9 @@ export const LINO_LINE_CONTENT_TYPE = "text/lino-line";
 
 /** Type-tagged, base64 Links Notation that preserves object identity. */
 export const LINO_COMPACT_CONTENT_TYPE = "text/lino-compact";
+
+/** Binary Links Notation carrying the typed compact object AST. */
+export const LINO_BINARY_CONTENT_TYPE = "application/lino-binary";
 
 /** JSON fallback for clients that cannot speak Links Notation. */
 export const JSON_CONTENT_TYPE = "application/json";
@@ -51,6 +54,7 @@ export const SUPPORTED_MEDIA_TYPES = [
   LINO_LINE_CONTENT_TYPE,
   LINO_COMPACT_CONTENT_TYPE,
   JSON_CONTENT_TYPE,
+  LINO_BINARY_CONTENT_TYPE,
 ];
 
 /**
@@ -60,7 +64,9 @@ export const SUPPORTED_MEDIA_TYPES = [
  * @returns {string} Media type with an explicit charset
  */
 export function withCharset(mediaType) {
-  return `${mediaType}; charset=utf-8`;
+  return mediaType === LINO_BINARY_CONTENT_TYPE
+    ? mediaType
+    : `${mediaType}; charset=utf-8`;
 }
 
 /**
@@ -164,18 +170,25 @@ export function negotiateMediaType(
   acceptHeader,
   supported = SUPPORTED_MEDIA_TYPES,
 ) {
-  for (const range of parseAccept(acceptHeader)) {
-    if (range.quality <= 0) {
-      continue;
+  const ranges = parseAccept(acceptHeader);
+  let selected = null;
+  let bestQuality = 0;
+  for (const mediaType of supported) {
+    let effective = null;
+    for (const range of ranges) {
+      if (
+        rangeMatches(range.type, mediaType) &&
+        (!effective || range.specificity > effective.specificity)
+      ) {
+        effective = range;
+      }
     }
-    const match = supported.find((mediaType) =>
-      rangeMatches(range.type, mediaType),
-    );
-    if (match) {
-      return match;
+    if (effective && effective.quality > bestQuality) {
+      selected = mediaType;
+      bestQuality = effective.quality;
     }
   }
-  return null;
+  return selected;
 }
 
 /**

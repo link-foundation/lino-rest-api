@@ -48,7 +48,7 @@ export class LinoApp {
    * @param {string} [options.description] - Prose description of the service
    * @param {boolean|object} [options.cors] - Enable CORS, optionally with a policy
    * @param {boolean} [options.describe] - Serve the service description (default true)
-   * @param {string[]} [options.supported] - Representations the server may produce
+   * @param {string[]} [options.supported] - Representations the server may accept and produce
    * @param {number} [options.maxBodyBytes] - Largest accepted request body
    * @param {boolean} [options.exposeStack] - Attach stack traces to `5xx` problems
    * @param {number} [options.defaultLimit] - Default collection page size
