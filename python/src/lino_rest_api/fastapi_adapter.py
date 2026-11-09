@@ -7,7 +7,9 @@ applications that want Links Notation instead of JSON without adopting
 ``lino_rest_api.middleware`` keeps working.
 """
 
+import inspect
 from collections.abc import Callable
+from functools import wraps
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -152,6 +154,15 @@ class LinoAPIRoute(APIRoute):
         return lino_handler
 
 
+def _request_endpoint(func: Callable, wrapper: Callable) -> Callable:
+    # Keep the user's endpoint metadata, but let FastAPI inject the wrapper's
+    # Request rather than interpreting the user's `body` as a query parameter.
+    request_signature = inspect.signature(wrapper)
+    wraps(func)(wrapper)
+    wrapper.__signature__ = request_signature
+    return wrapper
+
+
 class LinoAPI:
     """
     LinoAPI class - wraps FastAPI with LINO support.
@@ -200,8 +211,7 @@ class LinoAPI:
             async def wrapper(request: Request) -> LinoResponse:
                 return await self._dispatch(func, request)
 
-            wrapper.__name__ = func.__name__
-            self.app.get(path, **kwargs)(wrapper)
+            self.app.get(path, **kwargs)(_request_endpoint(func, wrapper))
             return func
 
         return decorator
@@ -219,8 +229,7 @@ class LinoAPI:
             async def wrapper(request: Request) -> LinoResponse:
                 return await self._dispatch(func, request)
 
-            wrapper.__name__ = func.__name__
-            self.app.post(path, **kwargs)(wrapper)
+            self.app.post(path, **kwargs)(_request_endpoint(func, wrapper))
             return func
 
         return decorator
@@ -238,8 +247,7 @@ class LinoAPI:
             async def wrapper(request: Request) -> LinoResponse:
                 return await self._dispatch(func, request)
 
-            wrapper.__name__ = func.__name__
-            self.app.put(path, **kwargs)(wrapper)
+            self.app.put(path, **kwargs)(_request_endpoint(func, wrapper))
             return func
 
         return decorator
@@ -257,8 +265,7 @@ class LinoAPI:
             async def wrapper(request: Request) -> LinoResponse:
                 return await self._dispatch(func, request)
 
-            wrapper.__name__ = func.__name__
-            self.app.delete(path, **kwargs)(wrapper)
+            self.app.delete(path, **kwargs)(_request_endpoint(func, wrapper))
             return func
 
         return decorator
@@ -276,8 +283,7 @@ class LinoAPI:
             async def wrapper(request: Request) -> LinoResponse:
                 return await self._dispatch(func, request)
 
-            wrapper.__name__ = func.__name__
-            self.app.patch(path, **kwargs)(wrapper)
+            self.app.patch(path, **kwargs)(_request_endpoint(func, wrapper))
             return func
 
         return decorator
@@ -304,8 +310,6 @@ class LinoAPI:
         Returns:
             Handler result
         """
-        import inspect
-
         sig = inspect.signature(func)
         params = sig.parameters
 

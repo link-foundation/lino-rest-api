@@ -125,8 +125,10 @@ async def test_fastapi_decorators_negotiate_binary_and_refuse_disabled_json():
 
     @api.post('/echo')
     def echo(body):
+        """Echo a binary body."""
         return body
 
+    assert api.get_fastapi_app().openapi()['paths']['/echo']['post']['description'] == echo.__doc__
     async with serve(api.get_fastapi_app(), accept=BINARY, content_type=BINARY) as s:
         assert (await s.client.post('/echo', CASES[-1]['value'])).data == CASES[-1]['value']
         response = await s.raw('/echo', 'POST',
