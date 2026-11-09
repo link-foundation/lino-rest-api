@@ -15,7 +15,8 @@ use lino_rest_api::codec::{
 };
 use lino_rest_api::headers::Headers;
 use lino_rest_api::media_type::{
-    JSON_CONTENT_TYPE, LINO_COMPACT_CONTENT_TYPE, LINO_CONTENT_TYPE, LINO_LINE_CONTENT_TYPE,
+    JSON_CONTENT_TYPE, LINO_BINARY_CONTENT_TYPE, LINO_COMPACT_CONTENT_TYPE, LINO_CONTENT_TYPE,
+    LINO_LINE_CONTENT_TYPE,
 };
 use lino_rest_api::middleware::{
     DEFAULT_MAX_BODY_BYTES, EtagPolicy, build_problem_response, build_response,
@@ -69,6 +70,7 @@ async fn accept_selects_the_response_representation() {
         (LINO_COMPACT_CONTENT_TYPE, encode_compact_notation(&value())),
         (
             JSON_CONTENT_TYPE,
+            LINO_BINARY_CONTENT_TYPE,
             encode_for(&value(), JSON_CONTENT_TYPE).expect("JSON is supported"),
         ),
     ];
@@ -98,6 +100,7 @@ async fn an_unacceptable_accept_is_a_406_listing_what_is_supported() {
             string(LINO_LINE_CONTENT_TYPE),
             string(LINO_COMPACT_CONTENT_TYPE),
             string(JSON_CONTENT_TYPE),
+            string(LINO_BINARY_CONTENT_TYPE),
         ])
     );
 }
@@ -125,6 +128,7 @@ async fn content_type_selects_the_request_codec() {
         (LINO_COMPACT_CONTENT_TYPE, encode_compact_notation(&body)),
         (
             JSON_CONTENT_TYPE,
+            LINO_BINARY_CONTENT_TYPE,
             encode_for(&body, JSON_CONTENT_TYPE).expect("JSON is supported"),
         ),
     ];
