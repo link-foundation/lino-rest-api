@@ -70,7 +70,6 @@ async fn accept_selects_the_response_representation() {
         (LINO_COMPACT_CONTENT_TYPE, encode_compact_notation(&value())),
         (
             JSON_CONTENT_TYPE,
-            LINO_BINARY_CONTENT_TYPE,
             encode_for(&value(), JSON_CONTENT_TYPE).expect("JSON is supported"),
         ),
     ];
@@ -128,7 +127,6 @@ async fn content_type_selects_the_request_codec() {
         (LINO_COMPACT_CONTENT_TYPE, encode_compact_notation(&body)),
         (
             JSON_CONTENT_TYPE,
-            LINO_BINARY_CONTENT_TYPE,
             encode_for(&body, JSON_CONTENT_TYPE).expect("JSON is supported"),
         ),
     ];
